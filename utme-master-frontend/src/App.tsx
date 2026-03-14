@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import ToastProvider from './components/ui/Toast'
+import ErrorDebugPanel from './components/debug/ErrorDebugPanel'
+import { successLogger } from './utils/successLogger'
 import 'react-quill/dist/quill.snow.css'
 
 // Lazy load components with error handling
@@ -20,6 +22,7 @@ const StudentDashboard = lazy(() => import('./pages/student/Dashboard'))
 const SubjectSelection = lazy(() => import('./pages/student/SubjectSelection'))
 const ExamInterface = lazy(() => import('./pages/student/ExamInterface'))
 const Results = lazy(() => import('./pages/student/Results'))
+const ExamReview = lazy(() => import('./pages/student/ExamReview'))
 const StudentAnalytics = lazy(() => import('./pages/student/Analytics'))
 const SimpleSubjectDashboard = lazy(() => import('./pages/student/SimpleSubjectDashboard'))
 const ExamStart = lazy(() => import('./pages/student/ExamStart'))
@@ -49,7 +52,11 @@ function LoadingSpinner() {
 }
 
 function App() {
-  console.log('🎯 UTME Master App is starting...')
+  useEffect(() => {
+    // Log app startup
+    successLogger.logAppStart('1.0.0', import.meta.env.MODE)
+    console.log('🎯 UTME Master App is running...')
+  }, [])
   
   return (
     <ErrorBoundary>
@@ -103,6 +110,11 @@ function App() {
             <Route path="/student/results/:id" element={
               <ProtectedRoute requiredRole="STUDENT">
                 <Results />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/exam-review/:studentExamId" element={
+              <ProtectedRoute requiredRole="STUDENT">
+                <ExamReview />
               </ProtectedRoute>
             } />
             <Route path="/student/analytics" element={
@@ -160,6 +172,9 @@ function App() {
 
         {/* Toast Notifications */}
         <ToastProvider />
+
+        {/* Error Debug Panel (Development Only) */}
+        <ErrorDebugPanel />
       </BrowserRouter>
     </ErrorBoundary>
   )

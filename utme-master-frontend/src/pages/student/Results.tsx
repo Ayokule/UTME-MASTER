@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { Eye } from 'lucide-react'
 import Layout from '../../components/Layout'
 import CelebrationHeader from '../../components/results/CelebrationHeader'
 import OverallScoreCard from '../../components/results/OverallScoreCard'
@@ -150,17 +151,28 @@ export default function Results() {
         </div>
 
         {/* Actions */}
-        <div className="mt-8">
-          <ResultActions
-            studentExamId={studentExamId!}
-            examId={results.exam.id}
-            canRetake={results.canRetake}
-            examTitle={results.exam.title}
-            score={results.score.total}
-            percentage={results.score.percentage}
-            onRetake={handleRetake}
-            onDownloadPDF={handleDownloadPDF}
-          />
+        <div className="mt-8 flex gap-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate(`/student/exam-review/${studentExamId}`)}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+          >
+            <Eye className="w-5 h-5" />
+            Review Answers
+          </motion.button>
+          <div className="flex-1">
+            <ResultActions
+              studentExamId={studentExamId!}
+              examId={results.exam.id}
+              canRetake={results.canRetake}
+              examTitle={results.exam.title}
+              score={results.score.total}
+              percentage={results.score.percentage}
+              onRetake={handleRetake}
+              onDownloadPDF={handleDownloadPDF}
+            />
+          </div>
         </div>
 
         {/* Question Review */}

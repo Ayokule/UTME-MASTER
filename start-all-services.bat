@@ -112,6 +112,26 @@ echo.
 echo Waiting for database to be ready...
 timeout /t 3 /nobreak >nul
 
+REM Run database migrations and seed
+echo.
+echo Running database migrations and seed...
+cd /d "%SCRIPT_DIR%utme-master-backend"
+call npx prisma migrate deploy >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [!] Migration failed, trying fresh migration...
+    call npx prisma migrate dev --name init >nul 2>&1
+)
+
+echo Running database seed...
+call npx prisma db seed >nul 2>&1
+if !errorlevel! equ 0 (
+    echo [OK] Database seeded successfully
+) else (
+    echo [!] Database seed failed (may already be seeded)
+)
+
+cd /d "%SCRIPT_DIR%"
+
 REM Start Backend
 echo.
 echo Starting Backend Server on port 3000...

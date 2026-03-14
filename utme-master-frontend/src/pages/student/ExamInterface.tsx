@@ -37,6 +37,7 @@ import {
 import { useAuthStore } from '../../store/auth'
 import * as examAPI from '../../api/exams'
 import { showToast } from '../../components/ui/Toast'
+import RealTimeAnalytics from '../../components/dashboard/RealTimeAnalytics'
 
 // ==========================================
 // TYPES
@@ -602,6 +603,22 @@ export default function ExamInterface() {
                 className="bg-gradient-to-r from-primary-500 to-secondary-500 h-3 rounded-full"
               />
             </div>
+          </motion.div>
+
+          {/* Real-Time Analytics */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-6"
+          >
+            <RealTimeAnalytics
+              totalQuestions={examData.totalQuestions}
+              answeredQuestions={Object.keys(answers).length}
+              correctAnswers={0} // Will be calculated from answers
+              timeRemaining={timeRemaining}
+              currentQuestionIndex={currentIndex}
+            />
           </motion.div>
         </div>
       </motion.div>

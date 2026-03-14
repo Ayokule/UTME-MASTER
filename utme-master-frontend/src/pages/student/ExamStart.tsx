@@ -62,7 +62,7 @@ export default function ExamStart() {
       
       if (response.data?.studentExamId) {
         showToast.success('Exam started!')
-        navigate('/student/exam', {
+        navigate(`/student/exam/${response.data.studentExamId}`, {
           state: {
             studentExamId: response.data.studentExamId
           }

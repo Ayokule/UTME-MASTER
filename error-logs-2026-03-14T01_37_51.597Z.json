@@ -1,0 +1,342 @@
+[
+  {
+    "timestamp": "2026-03-14T01:36:40.012Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:40.004Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:36:49.074Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:49.065Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:36:51.719Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:51.713Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:36:53.674Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:53.623Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:36:56.062Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:56.054Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:36:58.068Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:36:58.056Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:00.397Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:00.393Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:02.392Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:02.384Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:04.258Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:04.253Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:06.091Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:06.086Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:08.161Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:08.139Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:10.056Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:10.045Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:11.937Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:11.928Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:13.647Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:13.643Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:18.592Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:18.584Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:24.145Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:24.130Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  },
+  {
+    "timestamp": "2026-03-14T01:37:30.375Z",
+    "type": "API_ERROR",
+    "endpoint": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+    "method": "POST",
+    "statusCode": 422,
+    "message": "Validation failed",
+    "details": {
+      "success": false,
+      "message": "Validation failed",
+      "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",
+      "code": "VALIDATION_ERROR",
+      "statusCode": 422,
+      "timestamp": "2026-03-14T01:37:30.369Z",
+      "path": "/api/exams/cmmpnna1d0017ns4dz2dfpjjr/answers",
+      "method": "POST"
+    },
+    "stack": "AxiosError: Request failed with status code 422\n    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1319:7)\n    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=09586338:1682:7)",
+    "url": "/exams/cmmpnna1d0017ns4dz2dfpjjr/answers"
+  }
+]

@@ -6,6 +6,7 @@
 import { Request, Response } from 'express'
 import * as examService from '../services/exam.service'
 import { asyncHandler } from '../middleware/error.middleware'
+import { prisma } from '../config/database'
 
 // ==========================================
 // CREATE EXAM (Admin/Teacher)
@@ -281,5 +282,3 @@ export const getReviewQuestions = asyncHandler(async (req: Request, res: Respons
     data: { questions }
   })
 })
-
-import { prisma } from '../config/database'

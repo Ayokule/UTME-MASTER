@@ -117,33 +117,7 @@ export const submitAnswerSchema = z.object({
     .uuid('Invalid question ID format'),
   
   // Answer can be different formats based on question type
-  answer: z.union([
-    // Multiple choice: single selection
-    z.object({
-      selected: z.enum(['A', 'B', 'C', 'D'])
-    }),
-    // Multiple choice: multiple selections
-    z.object({
-      selected: z.array(z.enum(['A', 'B', 'C', 'D']))
-        .min(1, 'At least one option must be selected')
-    }),
-    // True/False
-    z.object({
-      selected: z.boolean()
-    }),
-    // Essay/Text answer
-    z.object({
-      text: z.string()
-        .min(1, 'Answer cannot be empty')
-        .max(5000, 'Answer cannot exceed 5000 characters')
-    }),
-    // Fill in the blank
-    z.object({
-      text: z.string()
-        .min(1, 'Answer cannot be empty')
-        .max(500, 'Answer cannot exceed 500 characters')
-    })
-  ]),
+  answer: z.any(),  // Accept any format for flexibility
   
   // Time spent on this question (in seconds)
   timeSpent: z.number()

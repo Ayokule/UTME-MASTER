@@ -604,7 +604,7 @@ async function createExamFromQuestions(
   })
 
   // Create student exam record
-  const questionOrder = selectedQuestions.map((_, index) => index + 1)
+  const questionOrder = selectedQuestions.map(q => q.id)
   
   const studentExam = await prisma.studentExam.create({
     data: {

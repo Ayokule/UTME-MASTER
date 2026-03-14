@@ -93,83 +93,38 @@ async function main() {
 
     const subjects = []
     for (const subjectInfo of subjectData) {
-      const subject = await prisma.subject.upsert({
-        where: { code: subjectInfo.code },
-        update: {},
-        create: subjectInfo
-      })
-      subjects.push(subject)
-      console.log(`✅ Subject created: ${subject.name}`)
+      try {
+        const subject = await prisma.subject.upsert({
+          where: { name: subjectInfo.name },
+          update: {},
+          create: subjectInfo
+        })
+        subjects.push(subject)
+        console.log(`✅ Subject created/found: ${subject.name}`)
+      } catch (error: any) {
+        // If subject already exists, fetch it
+        if (error.code === 'P2002') {
+          const existingSubject = await prisma.subject.findUnique({
+            where: { name: subjectInfo.name }
+          })
+          if (existingSubject) {
+            subjects.push(existingSubject)
+            console.log(`✅ Subject already exists: ${existingSubject.name}`)
+          }
+        } else {
+          throw error
+        }
+      }
     }
     console.log()
 
     // ==========================================
     // CREATE QUESTIONS
     // ==========================================
-    console.log('❓ Creating questions...')
-    
-    let totalQuestions = 0
-    
-    for (const subject of subjects) {
-      console.log(`\n📝 Creating questions for ${subject.name}...`)
-      
-      for (let i = 1; i <= 10; i++) {
-        // Randomly choose correct answer
-        const correctAnswerLabel = ['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)]
-        
-        // Create options
-        const options = [
-          {
-            label: 'A',
-            text: `Option A for ${subject.name} question ${i}`,
-            isCorrect: correctAnswerLabel === 'A'
-          },
-          {
-            label: 'B',
-            text: `Option B for ${subject.name} question ${i}`,
-            isCorrect: correctAnswerLabel === 'B'
-          },
-          {
-            label: 'C',
-            text: `Option C for ${subject.name} question ${i}`,
-            isCorrect: correctAnswerLabel === 'C'
-          },
-          {
-            label: 'D',
-            text: `Option D for ${subject.name} question ${i}`,
-            isCorrect: correctAnswerLabel === 'D'
-          }
-        ]
-
-        // Create question
-        await prisma.question.create({
-          data: {
-            subjectId: subject.id,
-            questionText: `${subject.name} Question ${i}: This is a sample question for testing purposes. What is the correct answer?`,
-            options: options,
-            optionA: options[0].text,
-            optionB: options[1].text,
-            optionC: options[2].text,
-            optionD: options[3].text,
-            correctAnswer: correctAnswerLabel,
-            explanation: `The correct answer is ${correctAnswerLabel}. This is the explanation for ${subject.name} question ${i}.`,
-            difficulty: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)] as any,
-            year: 2020 + Math.floor(Math.random() * 5),
-            examType: 'JAMB',
-            questionType: 'MCQ',
-            createdBy: admin.id,
-            isActive: true,
-            points: 1,
-            allowMultiple: false
-          }
-        })
-        
-        totalQuestions++
-      }
-      
-      console.log(`✅ Created 10 questions for ${subject.name}`)
-    }
+    console.log('❓ Skipping question creation (use admin dashboard to create questions)')
     console.log()
+
+    const totalQuestions = 0
 
     // ==========================================
     // SUMMARY
@@ -182,7 +137,7 @@ async function main() {
     console.log(`   ✅ 1 admin account created`)
     console.log(`   ✅ ${students.length} student accounts created`)
     console.log(`   ✅ ${subjects.length} subjects created`)
-    console.log(`   ✅ ${totalQuestions} questions created`)
+    console.log(`   ⏭️  Questions: Create via admin dashboard`)
     console.log()
     
     console.log('👤 Login Credentials:')
@@ -205,9 +160,10 @@ async function main() {
     console.log('🚀 Next Steps:')
     console.log('   1. Start backend: npm run dev')
     console.log('   2. Start frontend: npm run dev')
-    console.log('   3. Login with admin or student account')
-    console.log('   4. Navigate to /student/subjects')
-    console.log('   5. Select a subject and start exam')
+    console.log('   3. Login with admin account')
+    console.log('   4. Go to /admin/questions to create questions')
+    console.log('   5. Create exams and assign questions')
+    console.log('   6. Students can login and take exams')
     console.log()
 
   } catch (error) {
