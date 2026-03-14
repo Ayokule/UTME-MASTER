@@ -1,0 +1,475 @@
+// ==========================================
+// UTME MASTER - COMPLETE DATABASE SCHEMA
+// ==========================================
+// This is the COMPLETE schema combining ALL phases
+// Phase 1: Users & Auth
+// Phase 2: Questions & Subjects
+// Phase 3: Exams
+// Phase 4: Analytics (uses existing models)
+//
+// BEGINNER-FRIENDLY with clear comments!
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS (Types)
+// ==========================================
+
+// User roles in the system
+enum UserRole {
+  ADMIN     // Can manage everything
+  TEACHER   // Can create questions and exams
+  STUDENT   // Can take exams
+}
+
+// Difficulty levels for questions
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// Types of exams
+enum ExamType {
+  JAMB
+  WAEC
+  NECO
+  MOCK
+  PRACTICE
+}
+
+// Question types
+enum QuestionType {
+  MCQ          // Multiple Choice (single or multiple correct)
+  TRUE_FALSE   // True/False questions
+  FILL_BLANK   // Fill in the blank
+  ESSAY        // Essay/long answer
+  MATCHING     // Matching questions
+}
+
+// Exam status for student attempts
+enum ExamStatus {
+  NOT_STARTED   // Student hasn't started yet
+  IN_PROGRESS   // Currently taking exam
+  PAUSED        // Paused (if allowed)
+  SUBMITTED     // Completed and submitted
+  EXPIRED       // Time ran out (auto-submitted)
+  GRADING       // Being graded (for essay questions)
+}
+
+// ==========================================
+// USER MODEL
+// ==========================================
+// Stores all users: admins, teachers, and students
+
+model User {
+  // Primary key (unique ID for each user)
+  id String @id @default(uuid())
+  
+  // Login credentials
+  email    String @unique
+  password String
+  
+  // Personal information
+  firstName String @map("first_name")
+  lastName  String @map("last_name")
+  
+  // User type (ADMIN, TEACHER, or STUDENT)
+  role UserRole @default(STUDENT)
+  
+  // Account status
+  isActive Boolean @default(true) @map("is_active")
+  
+  // Last login tracking (for analytics)
+  lastLogin DateTime? @map("last_login")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // ==========================================
+  // RELATIONSHIPS
+  // ==========================================
+  
+  // Questions created by this user (if teacher/admin)
+  questions Question[] @relation("QuestionCreator")
+  
+  // Exams created by this user (if teacher/admin)
+  createdExams Exam[] @relation("ExamCreator")
+  
+  // Exam attempts by this user (if student)
+  studentExams StudentExam[] @relation("StudentExams")
+  
+  // Progress tracking for this student
+  progress StudentProgress[]
+  
+  // Map to database table name
+  @@map("users")
+  
+  // Create index on email for faster lookups
+  @@index([email])
+  @@index([role])
+}
+
+// ==========================================
+// SUBJECT MODEL
+// ==========================================
+// JAMB subjects (Mathematics, English, Physics, etc.)
+
+model Subject {
+  id String @id @default(uuid())
+  
+  // Subject details
+  name        String  @unique  // "Mathematics"
+  code        String  @unique  // "MTH"
+  description String? @db.Text
+  
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  topics    Topic[]
+  questions Question[]
+  
+  @@map("subjects")
+  @@index([code])
+}
+
+// ==========================================
+// TOPIC MODEL
+// ==========================================
+// Topics within each subject
+
+model Topic {
+  id String @id @default(uuid())
+  
+  // Topic details
+  name        String
+  description String? @db.Text
+  
+  // Which subject does this topic belong to?
+  subjectId String @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  questions Question[]
+  
+  @@map("topics")
+  @@index([subjectId])
+}
+
+// ==========================================
+// QUESTION MODEL
+// ==========================================
+// Individual exam questions
+
+model Question {
+  id String @id @default(uuid())
+  
+  // Question content
+  questionText String @db.Text @map("question_text")
+  
+  // Question type
+  questionType QuestionType @default(MCQ) @map("question_type")
+  
+  // Options (stored as JSON for flexibility)
+  // Format: [{ label: "A", text: "Option A", isCorrect: true }, ...]
+  options Json
+  
+  // Legacy fields (backward compatibility)
+  optionA       String? @map("option_a")
+  optionB       String? @map("option_b")
+  optionC       String? @map("option_c")
+  optionD       String? @map("option_d")
+  correctAnswer String? @map("correct_answer")
+  
+  // Rich content
+  explanation String? @db.Text
+  images      Json?   // Array of image URLs
+  audioUrl    String? @map("audio_url")
+  videoUrl    String? @map("video_url")
+  
+  // Question settings
+  allowMultiple      Boolean @default(false) @map("allow_multiple")
+  timeLimitSeconds   Int?    @map("time_limit_seconds")
+  points             Int     @default(1)
+  
+  // Classification
+  difficulty Difficulty
+  year       Int?
+  examType   ExamType   @default(JAMB) @map("exam_type")
+  
+  // Subject and topic
+  subjectId String  @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  
+  topicId String? @map("topic_id")
+  topic   Topic?  @relation(fields: [topicId], references: [id])
+  
+  // Image URL (main image)
+  imageUrl String? @map("image_url")
+  
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+  
+  // Who created this question?
+  createdBy String @map("created_by")
+  creator   User   @relation("QuestionCreator", fields: [createdBy], references: [id])
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  examQuestions ExamQuestion[]
+  studentAnswers StudentAnswer[]
+  
+  @@map("questions")
+  @@index([subjectId])
+  @@index([topicId])
+  @@index([difficulty])
+  @@index([examType])
+  @@index([year])
+  @@index([createdBy])
+}
+
+// ==========================================
+// EXAM MODEL
+// ==========================================
+// Exam templates created by admin/teacher
+
+model Exam {
+  id String @id @default(uuid())
+  
+  // Basic information
+  title       String
+  description String? @db.Text
+  
+  // Exam configuration
+  duration       Int  // Duration in seconds
+  totalMarks     Int  @map("total_marks")
+  passMarks      Int  @map("pass_marks")
+  totalQuestions Int  @map("total_questions")
+  
+  // Question selection
+  subjectIds          Json  @map("subject_ids")  // Array of subject IDs
+  questionsPerSubject Json? @map("questions_per_subject")  // Object: { subjectId: count }
+  
+  // Settings
+  randomizeQuestions Boolean  @default(false) @map("randomize_questions")
+  randomizeOptions   Boolean  @default(false) @map("randomize_options")
+  showResults        Boolean  @default(true)  @map("show_results")
+  allowReview        Boolean  @default(true)  @map("allow_review")
+  allowRetake        Boolean  @default(false) @map("allow_retake")
+  
+  // Filters
+  difficulties Json? // Array: ["EASY", "MEDIUM"]
+  yearFrom     Int?  @map("year_from")
+  yearTo       Int?  @map("year_to")
+  
+  // Status
+  isActive    Boolean @default(true)  @map("is_active")
+  isPublished Boolean @default(false) @map("is_published")
+  
+  // Scheduling
+  startsAt DateTime? @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+  
+  // Creator
+  createdBy String @map("created_by")
+  creator   User   @relation("ExamCreator", fields: [createdBy], references: [id])
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  examQuestions ExamQuestion[]
+  studentExams  StudentExam[]
+  
+  @@map("exams")
+  @@index([isPublished, isActive])
+  @@index([createdBy])
+}
+
+// ==========================================
+// EXAM QUESTION MODEL
+// ==========================================
+// Links questions to exams (junction table)
+
+model ExamQuestion {
+  id String @id @default(uuid())
+  
+  // Which exam and question?
+  examId     String @map("exam_id")
+  questionId String @map("question_id")
+  
+  // Order in exam
+  orderNumber Int @map("order_number")
+  
+  // Points for this question in this exam
+  points Int @default(1)
+  
+  // Cached question data (in case original is deleted)
+  questionData Json @map("question_data")
+  
+  // Timestamp
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relationships
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  
+  @@unique([examId, questionId])
+  @@map("exam_questions")
+  @@index([examId])
+  @@index([questionId])
+}
+
+// ==========================================
+// STUDENT EXAM MODEL
+// ==========================================
+// Student's attempt at an exam
+
+model StudentExam {
+  id String @id @default(uuid())
+  
+  // Which exam and student?
+  examId    String @map("exam_id")
+  studentId String @map("student_id")
+  
+  // Status
+  status ExamStatus @default(NOT_STARTED)
+  
+  // Timing
+  startedAt   DateTime? @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+  
+  // Time tracking (seconds)
+  timeSpent     Int  @default(0) @map("time_spent")
+  timeRemaining Int? @map("time_remaining")
+  
+  // Scoring
+  totalQuestions    Int   @map("total_questions")
+  answeredQuestions Int   @default(0) @map("answered_questions")
+  correctAnswers    Int   @default(0) @map("correct_answers")
+  wrongAnswers      Int   @default(0) @map("wrong_answers")
+  score             Float @default(0)
+  
+  // Results
+  passed  Boolean? // True if score >= passMarks
+  grade   String?  // A, B, C, D, F
+  
+  // Question order for this student (JSON array)
+  questionOrder Json @map("question_order")
+  
+  // Auto-submitted?
+  autoSubmitted Boolean @default(false) @map("auto_submitted")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  exam    Exam              @relation(fields: [examId], references: [id])
+  student User              @relation("StudentExams", fields: [studentId], references: [id])
+  answers StudentAnswer[]
+  
+  @@unique([examId, studentId])
+  @@map("student_exams")
+  @@index([examId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// ==========================================
+// STUDENT ANSWER MODEL
+// ==========================================
+// Individual answer for each question
+
+model StudentAnswer {
+  id String @id @default(uuid())
+  
+  // Which student exam and question?
+  studentExamId String @map("student_exam_id")
+  questionId    String @map("question_id")
+  
+  // Answer (JSON format)
+  // MCQ: { "selected": "A" } or { "selected": ["A", "B"] }
+  // Essay: { "text": "student's answer..." }
+  answer Json?
+  
+  // Correctness
+  isCorrect    Boolean? @map("is_correct")
+  pointsEarned Float    @default(0) @map("points_earned")
+  
+  // Timing
+  timeSpent Int? @map("time_spent") // Seconds on this question
+  
+  // Metadata
+  answeredAt       DateTime? @map("answered_at")
+  flaggedForReview Boolean   @default(false) @map("flagged_for_review")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  studentExam StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id])
+  
+  @@unique([studentExamId, questionId])
+  @@map("student_answers")
+  @@index([studentExamId])
+  @@index([questionId])
+}
+
+// ==========================================
+// STUDENT PROGRESS MODEL
+// ==========================================
+// Track student's overall progress
+
+model StudentProgress {
+  id String @id @default(uuid())
+  
+  // Which student and subject?
+  studentId String  @map("student_id")
+  subjectId String  @map("subject_id")
+  
+  // Statistics
+  totalQuestions    Int   @default(0) @map("total_questions")
+  correctAnswers    Int   @default(0) @map("correct_answers")
+  wrongAnswers      Int   @default(0) @map("wrong_answers")
+  averageScore      Float @default(0) @map("average_score")
+  lastPracticeDate  DateTime? @map("last_practice_date")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  student User @relation(fields: [studentId], references: [id])
+  
+  @@unique([studentId, subjectId])
+  @@map("student_progress")
+  @@index([studentId])
+  @@index([subjectId])
+}

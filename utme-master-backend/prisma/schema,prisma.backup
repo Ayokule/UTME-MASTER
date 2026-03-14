@@ -1,0 +1,410 @@
+// ==========================================
+// PRISMA DATABASE SCHEMA
+// ==========================================
+// This file defines the structure of our database
+// Think of it like a blueprint for a house
+//
+// What is Prisma?
+// - Prisma is an ORM (Object-Relational Mapping) tool
+// - It lets us work with databases using JavaScript/TypeScript
+// - Instead of writing SQL, we use Prisma functions
+//
+// What is a schema?
+// - Defines tables (like Excel sheets)
+// - Defines columns in each table
+// - Defines relationships between tables
+// - Defines data types and rules
+
+// ==========================================
+// DATABASE CONNECTION
+// ==========================================
+// This tells Prisma which database to use
+datasource db {
+  provider = "postgresql"  // We're using PostgreSQL database
+  url      = env("DATABASE_URL")  // Connection string from .env file
+}
+
+// ==========================================
+// PRISMA CLIENT GENERATOR
+// ==========================================
+// This generates TypeScript code to interact with database
+generator client {
+  provider = "prisma-client-js"  // Generate JavaScript client
+}
+
+// ==========================================
+// USER MODEL (Table)
+// ==========================================
+// Stores information about users (students, teachers, admins)
+//
+// Think of a model like an Excel sheet
+// Each model becomes a table in the database
+model User {
+  // PRIMARY KEY (Unique identifier for each user)
+  // UUID = Universally Unique Identifier (looks like: 550e8400-e29b-41d4-a716-446655440000)
+  // @id = This is the primary key
+  // @default(uuid()) = Automatically generate UUID when creating user
+  id String @id @default(uuid())
+  
+  // AUTHENTICATION FIELDS
+  // These fields are used for login
+  email String @unique  // Must be unique (no two users can have same email)
+  phone String? @unique  // Optional (? = nullable), also unique if provided
+  passwordHash String @map("password_hash")  // Never store plain passwords!
+  
+  // PERSONAL INFORMATION
+  firstName String @map("first_name")
+  lastName  String @map("last_name")
+  
+  // USER ROLE
+  // Determines what the user can do
+  // STUDENT = can take exams
+  // TEACHER = can create questions and exams
+  // ADMIN = can do everything
+  role UserRole @default(STUDENT)
+  
+  // LICENSE INFORMATION
+  // Determines which features user can access
+  // FREE = basic features
+  // PREMIUM = all features (paid)
+  // ENTERPRISE = everything + custom features
+  licenseTier LicenseTier @default(FREE) @map("license_tier")
+  licenseExpiresAt DateTime? @map("license_expires_at")  // When license expires (nullable)
+  
+  // ACCOUNT STATUS
+  isActive Boolean @default(true) @map("is_active")  // Can this user login?
+  
+  // TIMESTAMPS
+  // Automatically track when user was created/updated
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // RELATIONSHIPS
+  // One user can have many exam attempts
+  // This creates a link between User and StudentExam tables
+  studentExams StudentExam[]
+  
+  // One user can have many progress records
+  studentProgress StudentProgress[]
+  
+  // Map table name (snake_case in database, PascalCase in code)
+  @@map("users")
+  
+  // INDEXES (Make queries faster)
+  // Index email because we search by email often (during login)
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+}
+
+// ==========================================
+// USER ROLE ENUM
+// ==========================================
+// Enum = A field that can only be one of specific values
+// Like a multiple choice question with fixed options
+enum UserRole {
+  STUDENT   // Can take exams
+  TEACHER   // Can create questions and exams
+  ADMIN     // Can do everything
+}
+
+// ==========================================
+// LICENSE TIER ENUM
+// ==========================================
+enum LicenseTier {
+  FREE        // Free version (limited features)
+  PREMIUM     // Paid version (all features)
+  ENTERPRISE  // Business version (custom features)
+}
+
+// ==========================================
+// SUBJECT MODEL
+// ==========================================
+// Represents exam subjects (English, Math, Physics, etc.)
+model Subject {
+  id       String   @id @default(uuid())
+  name     String   // Display name (e.g., "English Language")
+  code     String   @unique  // Short code (e.g., "ENG")
+  examType ExamType @map("exam_type")  // JAMB, WAEC, or NECO
+  isActive Boolean  @default(true) @map("is_active")
+  
+  // RELATIONSHIPS
+  // One subject has many topics
+  topics    Topic[]
+  // One subject has many questions
+  questions Question[]
+  // One subject can have many progress records
+  studentProgress StudentProgress[]
+  
+  @@map("subjects")
+  @@index([examType])
+}
+
+// ==========================================
+// TOPIC MODEL
+// ==========================================
+// Subtopics within a subject (e.g., "Comprehension" in English)
+model Topic {
+  id          String  @id @default(uuid())
+  subjectId   String  @map("subject_id")
+  name        String  // Topic name
+  orderNumber Int     @map("order_number")  // Display order
+  
+  // RELATIONSHIPS
+  // Each topic belongs to one subject
+  subject   Subject    @relation(fields: [subjectId], references: [id])
+  // One topic can have many questions
+  questions Question[]
+  
+  @@map("topics")
+  @@index([subjectId])
+}
+
+// ==========================================
+// QUESTION MODEL
+// ==========================================
+// Stores exam questions
+model Question {
+  id           String     @id @default(uuid())
+  subjectId    String     @map("subject_id")
+  topicId      String?    @map("topic_id")  // Optional (nullable)
+  
+  // QUESTION CONTENT
+  questionText String     @map("question_text") @db.Text  // @db.Text = can be very long
+  optionA      String     @map("option_a")
+  optionB      String     @map("option_b")
+  optionC      String     @map("option_c")
+  optionD      String     @map("option_d")
+  
+  // CORRECT ANSWER
+  // Must be one of: A, B, C, or D
+  correctAnswer AnswerOption @map("correct_answer")
+  
+  // ADDITIONAL INFO
+  explanation  String?    @db.Text  // Optional explanation (for learning)
+  difficulty   Difficulty @default(MEDIUM)  // EASY, MEDIUM, or HARD
+  year         Int?       // Year (for past questions, e.g., 2020)
+  examType     ExamType   @map("exam_type")  // JAMB, WAEC, or NECO
+  imageUrl     String?    @map("image_url")  // Optional image
+  
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // RELATIONSHIPS
+  subject Subject  @relation(fields: [subjectId], references: [id])
+  topic   Topic?   @relation(fields: [topicId], references: [id])
+  
+  // One question can appear in many exams
+  examQuestions ExamQuestion[]
+  // One question can have many student answers
+  studentAnswers StudentAnswer[]
+  
+  @@map("questions")
+  
+  // INDEXES (for faster searching)
+  @@index([subjectId])
+  @@index([topicId])
+  @@index([examType])
+  @@index([difficulty])
+  @@index([year])
+}
+
+// ==========================================
+// ANSWER OPTION ENUM
+// ==========================================
+enum AnswerOption {
+  A
+  B
+  C
+  D
+}
+
+// ==========================================
+// DIFFICULTY ENUM
+// ==========================================
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// ==========================================
+// EXAM TYPE ENUM
+// ==========================================
+enum ExamType {
+  JAMB
+  WAEC
+  NECO
+}
+
+// ==========================================
+// EXAM MODEL
+// ==========================================
+// Represents an exam/test that students can take
+model Exam {
+  id              String       @id @default(uuid())
+  title           String       // Exam title (e.g., "JAMB Mock 2024")
+  description     String?      @db.Text
+  examTypeCategory ExamTypeCategory @map("exam_type_category")  // PRACTICE, MOCK, etc.
+  durationMinutes Int         @map("duration_minutes")  // How long (in minutes)
+  totalQuestions  Int         @map("total_questions")
+  createdBy       String      @map("created_by")  // User ID of creator
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  
+  // RELATIONSHIPS
+  // One exam has many questions
+  examQuestions ExamQuestion[]
+  // One exam can be taken by many students
+  studentExams  StudentExam[]
+  
+  @@map("exams")
+  @@index([createdBy])
+  @@index([examTypeCategory])
+}
+
+// ==========================================
+// EXAM TYPE CATEGORY ENUM
+// ==========================================
+enum ExamTypeCategory {
+  PRACTICE      // Practice test
+  MOCK          // Mock exam (simulates real exam)
+  PAST_QUESTION // Past exam questions
+}
+
+// ==========================================
+// EXAM QUESTION MODEL
+// ==========================================
+// Links exams and questions (many-to-many relationship)
+// One exam has many questions, one question can be in many exams
+model ExamQuestion {
+  id            String   @id @default(uuid())
+  examId        String   @map("exam_id")
+  questionId    String   @map("question_id")
+  questionOrder Int      @map("question_order")  // Order in exam (1, 2, 3...)
+  
+  // RELATIONSHIPS
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  
+  @@map("exam_questions")
+  @@index([examId])
+  @@index([questionId])
+}
+
+// ==========================================
+// STUDENT EXAM MODEL
+// ==========================================
+// Represents a student's attempt at an exam
+model StudentExam {
+  id              String     @id @default(uuid())
+  studentId       String     @map("student_id")
+  examId          String     @map("exam_id")
+  status          ExamStatus @default(NOT_STARTED)
+  
+  startedAt       DateTime?  @map("started_at")
+  submittedAt     DateTime?  @map("submitted_at")
+  timeSpentSeconds Int       @default(0) @map("time_spent_seconds")
+  
+  // SCORING
+  score         Float  @default(0)  // Points scored
+  totalPossible Float  @default(0) @map("total_possible")  // Maximum points
+  percentage    Float  @default(0)  // Score as percentage
+  
+  // RELATIONSHIPS
+  student Student @relation(fields: [studentId], references: [id])
+  exam    Exam    @relation(fields: [examId], references: [id])
+  
+  // One student exam has many answers
+  studentAnswers StudentAnswer[]
+  
+  @@map("student_exams")
+  @@index([studentId])
+  @@index([examId])
+  @@index([status])
+}
+
+// ALIAS: Student is just a User with role STUDENT
+// This makes queries cleaner (studentExam.student instead of studentExam.user)
+model Student {
+  id String @id @default(uuid())
+  
+  studentExams StudentExam[]
+  
+  @@map("users")  // Points to same table as User
+}
+
+// ==========================================
+// EXAM STATUS ENUM
+// ==========================================
+enum ExamStatus {
+  NOT_STARTED  // Hasn't started yet
+  IN_PROGRESS  // Currently taking exam
+  COMPLETED    // Finished and submitted
+}
+
+// ==========================================
+// STUDENT ANSWER MODEL
+// ==========================================
+// Stores each answer a student gives
+model StudentAnswer {
+  id            String       @id @default(uuid())
+  studentExamId String       @map("student_exam_id")
+  questionId    String       @map("question_id")
+  selectedAnswer AnswerOption @map("selected_answer")  // A, B, C, or D
+  isCorrect     Boolean      @map("is_correct")
+  answeredAt    DateTime     @default(now()) @map("answered_at")
+  
+  // RELATIONSHIPS
+  studentExam StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id])
+  
+  @@map("student_answers")
+  @@index([studentExamId])
+  @@index([questionId])
+}
+
+// ==========================================
+// STUDENT PROGRESS MODEL
+// ==========================================
+// Tracks student's progress per subject
+model StudentProgress {
+  id             String   @id @default(uuid())
+  studentId      String   @map("student_id")
+  subjectId      String   @map("subject_id")
+  
+  totalAttempts  Int      @default(0) @map("total_attempts")
+  correctAnswers Int      @default(0) @map("correct_answers")
+  wrongAnswers   Int      @default(0) @map("wrong_answers")
+  averageScore   Float    @default(0) @map("average_score")
+  
+  lastPracticed  DateTime @default(now()) @map("last_practiced")
+  
+  // RELATIONSHIPS
+  student User    @relation(fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+  
+  @@map("student_progress")
+  @@unique([studentId, subjectId])  // One progress record per student per subject
+  @@index([studentId])
+  @@index([subjectId])
+}
+
+// ==========================================
+// SUMMARY
+// ==========================================
+// This schema creates these tables:
+// 1. users - All users (students, teachers, admins)
+// 2. subjects - Exam subjects
+// 3. topics - Topics within subjects
+// 4. questions - Exam questions
+// 5. exams - Exams/tests
+// 6. exam_questions - Links exams to questions
+// 7. student_exams - Student exam attempts
+// 8. student_answers - Individual answers
+// 9. student_progress - Progress tracking
+//
+// To create these tables:
+// 1. Run: npx prisma migrate dev
+// 2. Prisma will ask for migration name: "init"
+// 3. Tables will be created in PostgreSQL

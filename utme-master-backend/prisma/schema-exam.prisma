@@ -1,0 +1,300 @@
+// ==========================================
+// EXAM SYSTEM DATABASE SCHEMA - Phase 3
+// ==========================================
+// This adds everything needed for students to take exams
+//
+// New Models:
+// - Exam (exam templates created by admins)
+// - StudentExam (student's attempt at an exam)
+// - StudentAnswer (individual answers)
+// - ExamSettings (timer, randomization, etc.)
+
+// ADD THESE TO YOUR EXISTING schema.prisma
+
+// ==========================================
+// EXAM MODEL
+// ==========================================
+// Template for exams created by admin/teacher
+// Example: "JAMB Mock Exam - Mathematics 2024"
+
+model Exam {
+  id          String   @id @default(uuid())
+  
+  // Basic Info
+  title       String   // "JAMB Mock Exam - Mathematics"
+  description String?  @db.Text
+  
+  // Exam Configuration
+  duration    Int      // Duration in seconds (e.g., 3600 = 1 hour)
+  totalMarks  Int      // Total possible marks
+  passMarks   Int      // Marks needed to pass
+  
+  // Question Selection
+  totalQuestions Int   // How many questions in total
+  
+  // Subjects included (JSON array of subject IDs)
+  // Example: ["uuid-math", "uuid-english", "uuid-physics"]
+  subjectIds  Json     @map("subject_ids")
+  
+  // Questions per subject (JSON object)
+  // Example: { "uuid-math": 40, "uuid-english": 40, "uuid-physics": 20 }
+  questionsPerSubject Json? @map("questions_per_subject")
+  
+  // Settings
+  randomizeQuestions Boolean @default(false) @map("randomize_questions")
+  randomizeOptions   Boolean @default(false) @map("randomize_options")
+  showResults        Boolean @default(true)  @map("show_results")  // Show results immediately after?
+  allowReview        Boolean @default(true)  @map("allow_review")  // Can review answers?
+  allowRetake        Boolean @default(false) @map("allow_retake")  // Can retake exam?
+  
+  // Difficulty filter (optional)
+  // If set, only include questions of these difficulties
+  difficulties Json?   // ["EASY", "MEDIUM"] or null for all
+  
+  // Year filter (optional)
+  yearFrom    Int?     @map("year_from")
+  yearTo      Int?     @map("year_to")
+  
+  // Status
+  isActive    Boolean  @default(true) @map("is_active")
+  isPublished Boolean  @default(false) @map("is_published")
+  
+  // Scheduling (optional)
+  startsAt    DateTime? @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  
+  // Metadata
+  createdBy   String   @map("created_by")  // User ID who created
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  creator     User     @relation("ExamCreator", fields: [createdBy], references: [id])
+  studentExams StudentExam[]
+  examQuestions ExamQuestion[]
+  
+  @@map("exams")
+  @@index([isPublished, isActive])
+  @@index([createdBy])
+}
+
+// ==========================================
+// EXAM QUESTION MODEL (Junction Table)
+// ==========================================
+// Links specific questions to an exam
+// When exam is created, we select questions and store them here
+// This ensures exam questions don't change even if question bank is updated
+
+model ExamQuestion {
+  id         String   @id @default(uuid())
+  examId     String   @map("exam_id")
+  questionId String   @map("question_id")
+  
+  // Order in exam (1, 2, 3...)
+  orderNumber Int     @map("order_number")
+  
+  // Points for this question in this exam
+  // Allows different point values per exam
+  points     Int      @default(1)
+  
+  // Cache question data (in case original question is deleted)
+  questionData Json   @map("question_data")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  // Relationships
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id])
+  
+  @@unique([examId, questionId])
+  @@map("exam_questions")
+  @@index([examId])
+  @@index([questionId])
+}
+
+// ==========================================
+// STUDENT EXAM MODEL
+// ==========================================
+// Represents one student's attempt at an exam
+// Tracks progress, time, score
+
+model StudentExam {
+  id        String   @id @default(uuid())
+  examId    String   @map("exam_id")
+  studentId String   @map("student_id")
+  
+  // Status
+  status    ExamStatus @default(NOT_STARTED)
+  
+  // Timing
+  startedAt DateTime?  @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+  
+  // Time tracking (in seconds)
+  timeSpent Int       @default(0) @map("time_spent")
+  timeRemaining Int?  @map("time_remaining")
+  
+  // Scoring
+  totalQuestions Int   @map("total_questions")
+  answeredQuestions Int @default(0) @map("answered_questions")
+  correctAnswers Int   @default(0) @map("correct_answers")
+  wrongAnswers   Int   @default(0) @map("wrong_answers")
+  score         Float  @default(0)  // Percentage or marks
+  
+  // Results
+  passed    Boolean?  // True if score >= passMarks
+  grade     String?   // A, B, C, D, F
+  
+  // Question order for this student (JSON array of question IDs)
+  // If randomized, each student gets different order
+  questionOrder Json  @map("question_order")
+  
+  // Auto-submitted? (time ran out)
+  autoSubmitted Boolean @default(false) @map("auto_submitted")
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  exam      Exam     @relation(fields: [examId], references: [id])
+  student   User     @relation("StudentExams", fields: [studentId], references: [id])
+  answers   StudentAnswer[]
+  
+  @@unique([examId, studentId])
+  @@map("student_exams")
+  @@index([examId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// ==========================================
+// STUDENT ANSWER MODEL
+// ==========================================
+// Individual answer for each question
+
+model StudentAnswer {
+  id             String      @id @default(uuid())
+  studentExamId  String      @map("student_exam_id")
+  questionId     String      @map("question_id")
+  
+  // Answer (JSON)
+  // For MCQ: { "selected": "A" } or { "selected": ["A", "B"] } for multiple
+  // For Essay: { "text": "student's essay..." }
+  // For Fill: { "answer": "student's answer" }
+  answer         Json?
+  
+  // Correctness
+  isCorrect      Boolean?    @map("is_correct")
+  pointsEarned   Float       @default(0) @map("points_earned")
+  
+  // Timing
+  timeSpent      Int?        @map("time_spent")  // Seconds on this question
+  
+  // Metadata
+  answeredAt     DateTime?   @map("answered_at")
+  flaggedForReview Boolean   @default(false) @map("flagged_for_review")
+  
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  
+  // Relationships
+  studentExam    StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+  question       Question    @relation(fields: [questionId], references: [id])
+  
+  @@unique([studentExamId, questionId])
+  @@map("student_answers")
+  @@index([studentExamId])
+  @@index([questionId])
+}
+
+// ==========================================
+// EXAM STATUS ENUM
+// ==========================================
+enum ExamStatus {
+  NOT_STARTED   // Student hasn't started yet
+  IN_PROGRESS   // Currently taking exam
+  PAUSED        // Paused (if allowed)
+  SUBMITTED     // Completed and submitted
+  EXPIRED       // Time ran out (auto-submitted)
+  GRADING       // Being graded (for essay questions)
+}
+
+// ==========================================
+// UPDATE USER MODEL
+// ==========================================
+// Add these to existing User model:
+
+model User {
+  // ... existing fields ...
+  
+  // NEW RELATIONSHIPS FOR EXAM SYSTEM
+  createdExams   Exam[]        @relation("ExamCreator")
+  studentExams   StudentExam[] @relation("StudentExams")
+  
+  // ... existing fields ...
+}
+
+// ==========================================
+// EXAMPLE DATA STRUCTURES
+// ==========================================
+
+// 1. CREATING AN EXAM:
+// {
+//   title: "JAMB Mock Exam 2024",
+//   description: "Full JAMB simulation with 4 subjects",
+//   duration: 10800,  // 3 hours
+//   totalMarks: 400,
+//   passMarks: 200,
+//   totalQuestions: 180,
+//   subjectIds: ["math-id", "english-id", "physics-id", "chemistry-id"],
+//   questionsPerSubject: {
+//     "math-id": 40,
+//     "english-id": 60,
+//     "physics-id": 40,
+//     "chemistry-id": 40
+//   },
+//   randomizeQuestions: true,
+//   randomizeOptions: true
+// }
+
+// 2. STUDENT STARTING EXAM:
+// {
+//   examId: "exam-123",
+//   studentId: "student-456",
+//   status: "IN_PROGRESS",
+//   startedAt: "2024-03-08T10:00:00Z",
+//   timeRemaining: 10800,
+//   totalQuestions: 180,
+//   questionOrder: ["q1", "q2", "q3", ...]  // randomized if needed
+// }
+
+// 3. STUDENT ANSWERING QUESTION:
+// {
+//   studentExamId: "attempt-789",
+//   questionId: "q1",
+//   answer: { "selected": "B" },
+//   timeSpent: 45,
+//   answeredAt: "2024-03-08T10:01:00Z"
+// }
+
+// 4. EXAM RESULTS:
+// {
+//   status: "SUBMITTED",
+//   submittedAt: "2024-03-08T13:00:00Z",
+//   totalQuestions: 180,
+//   answeredQuestions: 180,
+//   correctAnswers: 145,
+//   wrongAnswers: 35,
+//   score: 363,  // 145 * 2.5
+//   passed: true,
+//   grade: "B"
+// }
+
+// ==========================================
+// MIGRATION COMMAND
+// ==========================================
+// After adding these to schema.prisma:
+//
+// npx prisma migrate dev --name add_exam_system
+// npx prisma generate

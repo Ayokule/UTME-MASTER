@@ -1,0 +1,268 @@
+// ==========================================
+// QUESTION VALIDATION SCHEMAS
+// ==========================================
+// This file defines validation rules for question endpoints
+// Uses Zod to validate request data
+//
+// Why validate?
+// - Ensure data is in correct format
+// - Prevent bad data from entering database
+// - Provide clear error messages to frontend
+
+import { z } from 'zod'
+
+// ==========================================
+// CREATE QUESTION SCHEMA
+// ==========================================
+// Validates data when creating a new question
+// POST /api/questions
+
+export const createQuestionSchema = z.object({
+  // SUBJECT ID (required)
+  // UUID format
+  subjectId: z
+    .string({
+      required_error: 'Subject is required'
+    })
+    .uuid('Invalid subject ID format'),
+  
+  // TOPIC ID (optional)
+  // UUID format or empty string
+  topicId: z
+    .string()
+    .uuid('Invalid topic ID format')
+    .optional()
+    .or(z.literal('')),
+  
+  // QUESTION TEXT (required)
+  // Minimum 10 characters
+  questionText: z
+    .string({
+      required_error: 'Question text is required'
+    })
+    .min(10, 'Question must be at least 10 characters')
+    .max(5000, 'Question must be less than 5000 characters')
+    .trim(),
+  
+  // OPTION A (required)
+  optionA: z
+    .string({
+      required_error: 'Option A is required'
+    })
+    .min(1, 'Option A cannot be empty')
+    .max(500, 'Option A must be less than 500 characters')
+    .trim(),
+  
+  // OPTION B (required)
+  optionB: z
+    .string({
+      required_error: 'Option B is required'
+    })
+    .min(1, 'Option B cannot be empty')
+    .max(500, 'Option B must be less than 500 characters')
+    .trim(),
+  
+  // OPTION C (required)
+  optionC: z
+    .string({
+      required_error: 'Option C is required'
+    })
+    .min(1, 'Option C cannot be empty')
+    .max(500, 'Option C must be less than 500 characters')
+    .trim(),
+  
+  // OPTION D (required)
+  optionD: z
+    .string({
+      required_error: 'Option D is required'
+    })
+    .min(1, 'Option D cannot be empty')
+    .max(500, 'Option D must be less than 500 characters')
+    .trim(),
+  
+  // CORRECT ANSWER (required)
+  // Must be A, B, C, or D
+  correctAnswer: z.enum(['A', 'B', 'C', 'D'], {
+    required_error: 'Correct answer is required',
+    invalid_type_error: 'Correct answer must be A, B, C, or D'
+  }),
+  
+  // EXPLANATION (optional)
+  // Optional text explaining the answer
+  explanation: z
+    .string()
+    .max(2000, 'Explanation must be less than 2000 characters')
+    .optional()
+    .or(z.literal('')),
+  
+  // DIFFICULTY (required)
+  // Must be EASY, MEDIUM, or HARD
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], {
+    required_error: 'Difficulty is required',
+    invalid_type_error: 'Difficulty must be EASY, MEDIUM, or HARD'
+  }),
+  
+  // YEAR (optional)
+  // For past questions (e.g., JAMB 2020)
+  // Between 2000 and 2030
+  year: z
+    .number()
+    .int()
+    .min(2000, 'Year must be 2000 or later')
+    .max(2030, 'Year must be 2030 or earlier')
+    .optional(),
+  
+  // EXAM TYPE (required)
+  // Must be JAMB, WAEC, or NECO
+  examType: z.enum(['JAMB', 'WAEC', 'NECO'], {
+    required_error: 'Exam type is required',
+    invalid_type_error: 'Exam type must be JAMB, WAEC, or NECO'
+  }),
+  
+  // IMAGE URL (optional)
+  // URL to question image
+  imageUrl: z
+    .string()
+    .url('Image URL must be a valid URL')
+    .optional()
+    .or(z.literal(''))
+})
+  // Custom validation: Check if all options are unique
+  .refine((data) => {
+    const options = [data.optionA, data.optionB, data.optionC, data.optionD]
+    const uniqueOptions = new Set(options)
+    return options.length === uniqueOptions.size
+  }, {
+    message: 'All options must be unique',
+    path: ['options']
+  })
+
+// TypeScript type from schema
+export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
+
+// ==========================================
+// UPDATE QUESTION SCHEMA
+// ==========================================
+// Validates data when updating a question
+// PUT /api/questions/:id
+// Same as create schema (can update all fields)
+
+export const updateQuestionSchema = createQuestionSchema
+
+export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
+
+// ==========================================
+// QUERY QUESTIONS SCHEMA
+// ==========================================
+// Validates query parameters when fetching questions
+// GET /api/questions?page=1&limit=20&search=...
+
+export const queryQuestionsSchema = z.object({
+  // PAGINATION
+  page: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().int().min(1))
+    .optional()
+    .default('1'),
+  
+  limit: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100))
+    .optional()
+    .default('20'),
+  
+  // SEARCH
+  search: z
+    .string()
+    .optional(),
+  
+  // FILTERS
+  subjectId: z
+    .string()
+    .uuid()
+    .optional(),
+  
+  topicId: z
+    .string()
+    .uuid()
+    .optional(),
+  
+  difficulty: z
+    .enum(['EASY', 'MEDIUM', 'HARD'])
+    .optional(),
+  
+  year: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().int())
+    .optional(),
+  
+  examType: z
+    .enum(['JAMB', 'WAEC', 'NECO'])
+    .optional(),
+  
+  // SORTING
+  sortBy: z
+    .enum(['createdAt', 'difficulty', 'year'])
+    .optional()
+    .default('createdAt'),
+  
+  sortOrder: z
+    .enum(['asc', 'desc'])
+    .optional()
+    .default('desc')
+})
+
+export type QueryQuestionsInput = z.infer<typeof queryQuestionsSchema>
+
+// ==========================================
+// BULK DELETE SCHEMA
+// ==========================================
+// Validates bulk delete request
+// DELETE /api/questions/bulk
+
+export const bulkDeleteSchema = z.object({
+  // Array of question IDs to delete
+  ids: z
+    .array(z.string().uuid('Invalid question ID format'))
+    .min(1, 'At least one question ID is required')
+    .max(100, 'Cannot delete more than 100 questions at once')
+})
+
+export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>
+
+// ==========================================
+// QUESTION ID PARAM SCHEMA
+// ==========================================
+// Validates :id parameter in routes
+// GET /api/questions/:id
+
+export const questionIdSchema = z.object({
+  id: z.string().uuid('Invalid question ID format')
+})
+
+export type QuestionIdParam = z.infer<typeof questionIdSchema>
+
+// ==========================================
+// EXAMPLE VALIDATION ERRORS
+// ==========================================
+// When validation fails, Zod returns detailed errors:
+//
+// Request:
+// {
+//   subjectId: 'invalid-id',
+//   questionText: 'short',
+//   optionA: 'Same',
+//   optionB: 'Same',
+//   correctAnswer: 'X'
+// }
+//
+// Validation errors:
+// [
+//   { field: 'subjectId', message: 'Invalid subject ID format' },
+//   { field: 'questionText', message: 'Question must be at least 10 characters' },
+//   { field: 'correctAnswer', message: 'Correct answer must be A, B, C, or D' },
+//   { field: 'options', message: 'All options must be unique' }
+// ]

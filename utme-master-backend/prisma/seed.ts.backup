@@ -1,0 +1,300 @@
+import { PrismaClient } from '@prisma/client'
+import * as bcrypt from 'bcryptjs'
+import { randomUUID } from 'crypto'
+import * as fs from 'fs'
+import * as path from 'path'
+import csv from 'csv-parser'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  console.log('🌱 Starting database seed...')
+
+  // Create admin user
+  console.log('\n👤 Creating admin user...')
+  const adminPasswordHash = await bcrypt.hash('Admin@123', 10)
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@utmemaster.com' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      email: 'admin@utmemaster.com',
+      password: adminPasswordHash,
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'ADMIN',
+      licenseTier: 'ENTERPRISE',
+      isActive: true
+    }
+  })
+  console.log(`✅ Admin created: ${admin.email}`)
+
+  // Create demo users
+  console.log('\n👤 Creating demo users...')
+  const demoAdminHash = await bcrypt.hash('password123', 10)
+  await prisma.user.upsert({
+    where: { email: 'admin@demo.com' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      email: 'admin@demo.com',
+      password: demoAdminHash,
+      firstName: 'Demo',
+      lastName: 'Admin',
+      role: 'ADMIN',
+      licenseTier: 'ENTERPRISE',
+      isActive: true
+    }
+  })
+  console.log('✅ Demo Admin created')
+
+  const demoStudentHash = await bcrypt.hash('password123', 10)
+  await prisma.user.upsert({
+    where: { email: 'student@demo.com' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      email: 'student@demo.com',
+      password: demoStudentHash,
+      firstName: 'Demo',
+      lastName: 'Student',
+      role: 'STUDENT',
+      licenseTier: 'TRIAL',
+      isActive: true
+    }
+  })
+  console.log('✅ Demo Student created')
+
+  const demoTeacherHash = await bcrypt.hash('password123', 10)
+  await prisma.user.upsert({
+    where: { email: 'teacher@demo.com' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      email: 'teacher@demo.com',
+      password: demoTeacherHash,
+      firstName: 'Demo',
+      lastName: 'Teacher',
+      role: 'TEACHER',
+      licenseTier: 'BASIC',
+      isActive: true
+    }
+  })
+  console.log('✅ Demo Teacher created')
+
+  // Create subjects
+  console.log('\n📚 Creating subjects...')
+  const subjectList = [
+    { name: 'English Language', code: 'ENG', description: 'Use of English and comprehension' },
+    { name: 'Mathematics', code: 'MTH', description: 'Arithmetic, Algebra, Geometry, Calculus' },
+    { name: 'Physics', code: 'PHY', description: 'Mechanics, Electricity, Waves, Modern Physics' },
+    { name: 'Chemistry', code: 'CHM', description: 'Organic, Inorganic, Physical Chemistry' },
+    { name: 'Biology', code: 'BIO', description: 'Botany, Zoology, Ecology, Genetics' },
+    { name: 'Economics', code: 'ECO', description: 'Microeconomics, Macroeconomics' },
+    { name: 'Government', code: 'GOV', description: 'Political systems, Governance' },
+    { name: 'Commerce', code: 'COM', description: 'Trade, Business, Accounting' },
+    { name: 'Literature in English', code: 'LIT', description: 'Poetry, Prose, Drama' },
+    { name: 'CRK/IRK', code: 'CRK', description: 'Christian/Islamic Religious Knowledge' }
+  ]
+
+  for (const subject of subjectList) {
+    await prisma.subject.upsert({
+      where: { code: subject.code },
+      update: {},
+      create: subject
+    })
+  }
+  console.log(`✅ ${subjectList.length} subjects created`)
+
+  // Import real questions from CSV
+  console.log('\n❓ Importing real questions from CSV...')
+  const csvPath = path.join(__dirname, '../../jamb-biology-100-questions.csv')
+
+  if (fs.existsSync(csvPath)) {
+    const allSubjects = await prisma.subject.findMany()
+    const subjectMap = new Map(allSubjects.map(s => [s.code, s.id]))
+
+    const questions: any[] = []
+
+    // Read CSV file
+    await new Promise<void>((resolve, reject) => {
+      fs.createReadStream(csvPath)
+        .pipe(csv())
+        .on('data', (row: any) => {
+          questions.push(row)
+        })
+        .on('end', () => {
+          resolve()
+        })
+        .on('error', reject)
+    })
+
+    console.log(`📊 Found ${questions.length} questions in CSV`)
+
+    // Import questions
+    let importedCount = 0
+    for (const row of questions) {
+      const subjectId = subjectMap.get(row.subjectCode)
+      if (!subjectId) {
+        console.log(`⚠️  Skipping question - unknown subject code: ${row.subjectCode}`)
+        continue
+      }
+
+      const options = [
+        { label: 'A', text: row.optionA, isCorrect: row.correctAnswer === 'A' },
+        { label: 'B', text: row.optionB, isCorrect: row.correctAnswer === 'B' },
+        { label: 'C', text: row.optionC, isCorrect: row.correctAnswer === 'C' },
+        { label: 'D', text: row.optionD, isCorrect: row.correctAnswer === 'D' }
+      ]
+
+      await prisma.question.create({
+        data: {
+          subjectId,
+          questionText: row.questionText,
+          options,
+          createdBy: admin.id,
+          optionA: row.optionA,
+          optionB: row.optionB,
+          optionC: row.optionC,
+          optionD: row.optionD,
+          explanation: row.explanation || 'No explanation provided',
+          difficulty: row.difficulty as any,
+          year: parseInt(row.year),
+          examType: row.examType,
+          questionType: 'MCQ',
+          isActive: true,
+          points: 1,
+          allowMultiple: false
+        }
+      })
+
+      importedCount++
+    }
+
+    console.log(`✅ Imported ${importedCount} real questions from CSV`)
+  } else {
+    console.log('⚠️  CSV file not found, creating sample questions instead...')
+    // Create sample questions for Biology
+    const bioSubject = await prisma.subject.findUnique({ where: { code: 'BIO' } })
+    if (bioSubject) {
+      const sampleQuestions = [
+        {
+          questionText: 'What is the basic unit of life?',
+          optionA: 'Cell',
+          optionB: 'Organ',
+          optionC: 'Tissue',
+          optionD: 'Atom',
+          correctAnswer: 'A',
+          explanation: 'The cell is the fundamental structural and functional unit of all living organisms.',
+          difficulty: 'Easy' as const,
+          year: 2023,
+          examType: 'JAMB'
+        },
+        {
+          questionText: 'Which organelle is responsible for energy production in cells?',
+          optionA: 'Nucleus',
+          optionB: 'Mitochondria',
+          optionC: 'Ribosome',
+          optionD: 'Golgi apparatus',
+          correctAnswer: 'B',
+          explanation: 'Mitochondria is the powerhouse of the cell, responsible for ATP (energy) production.',
+          difficulty: 'Easy' as const,
+          year: 2023,
+          examType: 'JAMB'
+        },
+        {
+          questionText: 'What is the process by which organisms grow and replace damaged cells?',
+          optionA: 'Meiosis',
+          optionB: 'Mitosis',
+          optionC: 'Photosynthesis',
+          optionD: 'Respiration',
+          correctAnswer: 'B',
+          explanation: 'Mitosis is the process of cell division that produces two identical daughter cells for growth and repair.',
+          difficulty: 'Medium' as const,
+          year: 2023,
+          examType: 'JAMB'
+        },
+        {
+          questionText: 'Which of the following is a characteristic of living organisms?',
+          optionA: 'Immobility',
+          optionB: 'Metabolism',
+          optionC: 'Rigidity',
+          optionD: 'Crystalline structure',
+          correctAnswer: 'B',
+          explanation: 'Metabolism refers to the chemical reactions within organisms that maintain life.',
+          difficulty: 'Easy' as const,
+          year: 2023,
+          examType: 'JAMB'
+        },
+        {
+          questionText: 'What is the primary function of the ribosome?',
+          optionA: 'Photosynthesis',
+          optionB: 'Protein synthesis',
+          optionC: 'Energy storage',
+          optionD: 'DNA replication',
+          correctAnswer: 'B',
+          explanation: 'Ribosomes are the site of protein synthesis where mRNA is translated into proteins.',
+          difficulty: 'Medium' as const,
+          year: 2023,
+          examType: 'JAMB'
+        }
+      ]
+
+      for (const sampleQ of sampleQuestions) {
+        const options = [
+          { label: 'A', text: sampleQ.optionA, isCorrect: sampleQ.correctAnswer === 'A' },
+          { label: 'B', text: sampleQ.optionB, isCorrect: sampleQ.correctAnswer === 'B' },
+          { label: 'C', text: sampleQ.optionC, isCorrect: sampleQ.correctAnswer === 'C' },
+          { label: 'D', text: sampleQ.optionD, isCorrect: sampleQ.correctAnswer === 'D' }
+        ]
+
+        await prisma.question.create({
+          data: {
+            subjectId: bioSubject.id,
+            questionText: sampleQ.questionText,
+            options,
+            createdBy: admin.id,
+            optionA: sampleQ.optionA,
+            optionB: sampleQ.optionB,
+            optionC: sampleQ.optionC,
+            optionD: sampleQ.optionD,
+            explanation: sampleQ.explanation,
+            difficulty: sampleQ.difficulty,
+            year: sampleQ.year,
+            examType: sampleQ.examType,
+            questionType: 'MCQ',
+            isActive: true,
+            points: 1,
+            allowMultiple: false
+          }
+        })
+      }
+      console.log(`✅ Created 5 sample Biology questions`)
+    }
+  }
+
+  // Summary
+  console.log('\n' + '='.repeat(50))
+  console.log('🎉 Seeding completed successfully!')
+  console.log('='.repeat(50))
+  console.log('\n📊 Summary:')
+  console.log('- 4 users created (1 admin, 3 demo)')
+  console.log('- 10 subjects created')
+  console.log('- Real or sample questions imported')
+  console.log('\n👤 Login credentials:')
+  console.log('Admin: admin@utmemaster.com / Admin@123')
+  console.log('Demo Admin: admin@demo.com / password123')
+  console.log('Demo Teacher: teacher@demo.com / password123')
+  console.log('Demo Student: student@demo.com / password123')
+  console.log('\n🚀 You can now start the server: npm run dev')
+}
+
+main()
+  .catch((error) => {
+    console.error('❌ Error seeding database:', error)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
+

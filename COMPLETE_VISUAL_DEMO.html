@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTME Master - Question Form Examples (Create & Edit)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .screen-frame {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .browser-bar {
+            background: #f3f4f6;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .screen-content {
+            background: #f9fafb;
+            padding: 24px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .editor-box {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            background: white;
+            min-height: 150px;
+            padding: 16px;
+        }
+        .editor-box.focused {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .toolbar {
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 8px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .toolbar-btn:hover {
+            background: #f3f4f6;
+            border-color: #6366f1;
+        }
+        .toolbar-btn.active {
+            background: #eef2ff;
+            border-color: #6366f1;
+            color: #6366f1;
+        }
+        .option-box {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            background: white;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        .option-box:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .option-box.correct {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-new {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-edit {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #e5e7eb;
+            padding: 0 24px;
+            background: white;
+        }
+        .nav-tab {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover {
+            color: #374151;
+        }
+        .nav-tab.active {
+            color: #6366f1;
+            border-bottom-color: #6366f1;
+        }
+        .latex-text {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            color: #1f2937;
+        }
+        .chem-formula {
+            font-family: 'Courier New', monospace;
+            color: #059669;
+        }
+        .audio-player {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: white;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .image-upload-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .image-upload-zone:hover {
+            border-color: #6366f1;
+            background: #f9fafb;
+        }
+        .image-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            display: inline-block;
+            margin: 8px;
+        }
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .image-preview .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .view-mode {
+            display: none;
+        }
+        .view-mode.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-white mb-2">📚 UTME Master - Question Form Examples</h1>
+            <p class="text-white/80">Interactive demos showing CREATE and EDIT modes with all advanced features</p>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="flex justify-center gap-4 mb-6">
+            <button onclick="switchMode('create')" class="mode-btn px-8 py-4 bg-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active">
+                <i class="fas fa-plus-circle text-green-600"></i> CREATE Question
+            </button>
+            <button onclick="switchMode('edit')" class="mode-btn px-8 py-4 bg-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
+                <i class="fas fa-edit text-amber-600"></i> EDIT Question
+            </button>
+        </div>
+
+        <!-- Screen Frame -->
+        <div class="screen-frame">
+            <!-- Browser Bar -->
+            <div class="browser-bar">
+                <div class="browser-dot" style="background: #ef4444;"></div>
+                <div class="browser-dot" style="background: #f59e0b;"></div>
+                <div class="browser-dot" style="background: #10b981;"></div>
+                <div class="flex-1 text-center text-sm text-gray-600 font-medium">
+                    <i class="fas fa-lock text-gray-400"></i>
+                    http://localhost:5173/admin/questions/<span id="url-path">create</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchExample('math')">
+                    <i class="fas fa-square-root-alt"></i> Math Question
+                </button>
+                <button class="nav-tab" onclick="switchExample('chemistry')">
+                    <i class="fas fa-flask"></i> Chemistry
+                </button>
+                <button class="nav-tab" onclick="switchExample('oral')">
+                    <i class="fas fa-microphone"></i> Oral English
+                </button>
+                <button class="nav-tab" onclick="switchExample('multiple')">
+                    <i class="fas fa-check-double"></i> Multiple Correct
+                </button>
+            </div>
+
+            <!-- Screen Content -->
+            <div class="screen-content">
+                
+                <!-- CREATE MODE -->
+                <div id="create-mode" class="view-mode active">
+                    
+                    <!-- Header -->
+                    <div class="mb-6">
+                        <button class="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md inline-flex items-center gap-2 mb-4">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Questions
+                        </button>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-3xl font-bold text-gray-900">Create New Question</h2>
+                            <span class="badge badge-new">
+                                <i class="fas fa-sparkles"></i> NEW FEATURES
+                            </span>
+                        </div>
+                        <p class="text-gray-600 mt-1">Add a new question with advanced features: math equations, audio, dynamic options</p>
+                    </div>
+
+                    <!-- MATH EXAMPLE -->
+                    <div id="math-example" class="example-content">
+                        
+                        <!-- Question Type -->
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                                <i class="fas fa-shapes text-indigo-600"></i>
+                                Question Type
+                            </h3>
+                            <div class="grid grid-cols-4 gap-3">
+                                <button class="p-4 border-2 border-indigo-600 bg-indigo-50 rounded-xl font-semibold text-center">
+                                    <div class="text-2xl mb-2">📝</div>
+                                    <div class="text-sm">Multiple Choice</div>
+                                    <div class="text-xs text-indigo-600 mt-1">✓ Selected</div>
+                                </button>
+                                <button class="p-4 border-2 border-gray-300 rounded-xl hover:border-gray-400 text-center">
+                                    <div class="text-2xl mb-2">✓✗</div>
+                                    <div class="text-sm">True/False</div>
+                                </button>
+                                <button class="p-4 border-2 border-gray-300 rounded-xl hover:border-gray-400 text-center">
+                                    <div class="text-2xl mb-2">⌨️</div>
+                                    <div class="text-sm">Fill Blank</div>
+                                </button>
+                                <button class="p-4 border-2 border-gray-300 rounded-xl hover:border-gray-400 text-center">
+                                    <div class="text-2xl mb-2">📄</div>
+                                    <div class="text-sm">Essay</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Subject & Topic -->
+                        <div class="section-card">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Subject <span class="text-red-500">*</span></label>
+                                    <select class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-indigo-500">
+                                        <option>Mathematics</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Topic <span class="text-gray-400">(Optional)</span></label>
+                                    <select class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl">
+                                        <option>Quadratic Equations</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Question Text with Rich Editor -->
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+                                <i class="fas fa-edit text-indigo-600"></i>
+                                Question Text
+                                <span class="text-sm text-gray-500 font-normal">- Supports math equations & formatting</span>
+                            </h3>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm">
+                                <div class="font-semibold text-blue-900 mb-1">
+                                    <i class="fas fa-info-circle"></i> How to add special content:
+                                </div>
+                                <div class="text-blue-800">
+                                    • <strong>Math:</strong> Click "fx" button or type LaTeX
+                                    • <strong>Format:</strong> Bold, italic, underline
+                                    • <strong>Images:</strong> Insert diagrams
+                                </div>
+                            </div>
+
+                            <div class="editor-box focused">
+                                <div class="toolbar mb-3">
+                                    <button class="toolbar-btn"><i class="fas fa-bold"></i></button>
+                                    <button class="toolbar-btn"><i class="fas fa-italic"></i></button>
+                                    <button class="toolbar-btn"><i class="fas fa-underline"></i></button>
+                                    <button class="toolbar-btn active"><i class="fas fa-square-root-alt"></i> fx</button>
+                                    <button class="toolbar-btn"><i class="fas fa-image"></i></button>
+                                    <button class="toolbar-btn"><i class="fas fa-align-left"></i></button>
+                                    <button class="toolbar-btn"><i class="fas fa-list"></i></button>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-gray-900 mb-3">Solve the quadratic equation:</p>
+                                    <p class="text-center text-3xl latex-text my-4">
+                                        x² - 7x + 12 = 0
+                                    </p>
+                                    <p class="text-gray-600 text-sm italic">(Use factorization or quadratic formula)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Options -->
+                        <div class="section-card">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-bold flex items-center gap-2">
+                                    <i class="fas fa-list-ol text-indigo-600"></i>
+                                    Options (4)
+                                    <span class="badge badge-new">Can add up to 10!</span>
+                                </h3>
+                                <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                                    <i class="fas fa-plus"></i> Add Option (E)
+                                </button>
+                            </div>
+
+                            <!-- Option A - Correct -->
+                            <div class="option-box correct">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="correct1" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;">
+                                    <div class="font-bold text-xl w-8 pt-2">A</div>
+                                    <div class="flex-1">
+                                        <div class="bg-white p-3 rounded-lg border border-green-200">
+                                            <p class="text-xl latex-text">x = 3 or x = 4</p>
+                                        </div>
+                                    </div>
+                                    <button class="p-2 hover:bg-red-50 rounded-lg text-red-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2 flex items-center gap-2 text-green-700 font-semibold text-sm">
+                                    <i class="fas fa-check-circle"></i>
+                                    Correct Answer
+                                </div>
+                            </div>
+
+                            <!-- Option B -->
+                            <div class="option-box">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="correct1" class="w-5 h-5 mt-3">
+                                    <div class="font-bold text-xl w-8 pt-2">B</div>
+                                    <div class="flex-1">
+                                        <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                            <p class="text-xl latex-text">x = 2 or x = 6</p>
+                                        </div>
+                                    </div>
+                                    <button class="p-2 hover:bg-red-50 rounded-lg text-red-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Option C -->
+                            <div class="option-box">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="correct1" class="w-5 h-5 mt-3">
+                                    <div class="font-bold text-xl w-8 pt-2">C</div>
+                                    <div class="flex-1">
+                                        <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                            <p class="text-xl latex-text">x = 1 or x = 12</p>
+                                        </div>
+                                    </div>
+                                    <button class="p-2 hover:bg-red-50 rounded-lg text-red-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Option D -->
+                            <div class="option-box">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="correct1" class="w-5 h-5 mt-3">
+                                    <div class="font-bold text-xl w-8 pt-2">D</div>
+                                    <div class="flex-1">
+                                        <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                            <p class="text-xl">No real solution</p>
+                                        </div>
+                                    </div>
+                                    <button class="p-2 hover:bg-red-50 rounded-lg text-red-600">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Explanation -->
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+                                <i class="fas fa-graduation-cap text-indigo-600"></i>
+                                Explanation <span class="text-gray-400 text-sm font-normal">(Optional)</span>
+                            </h3>
+                            <div class="editor-box">
+                                <div class="toolbar mb-3">
+                                    <button class="toolbar-btn"><i class="fas fa-bold"></i></button>
+                                    <button class="toolbar-btn active"><i class="fas fa-square-root-alt"></i> fx</button>
+                                </div>
+                                <div class="p-3">
+                                    <p class="mb-2">Using factorization:</p>
+                                    <p class="text-xl latex-text mb-2">x² - 7x + 12 = (x - 3)(x - 4) = 0</p>
+                                    <p class="mb-2">Therefore:</p>
+                                    <p class="text-lg latex-text">x = 3 or x = 4 ✓</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings -->
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-4">Additional Settings</h3>
+                            <div class="grid grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Difficulty</label>
+                                    <select class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                        <option>EASY</option>
+                                        <option selected>MEDIUM</option>
+                                        <option>HARD</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Year</label>
+                                    <input type="number" value="2024" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Exam Type</label>
+                                    <select class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                        <option selected>JAMB</option>
+                                        <option>WAEC</option>
+                                        <option>NECO</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Points</label>
+                                    <input type="number" value="2" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-4">
+                            <button class="px-8 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button class="flex-1 px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg">
+                                <i class="fas fa-save"></i> Create Question
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CHEMISTRY EXAMPLE -->
+                    <div id="chemistry-example" class="example-content" style="display:none;">
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3">Question Text - Chemistry</h3>
+                            <div class="editor-box focused">
+                                <div class="toolbar mb-3">
+                                    <button class="toolbar-btn"><i class="fas fa-bold"></i></button>
+                                    <button class="toolbar-btn active"><i class="fas fa-flask"></i> Chem</button>
+                                </div>
+                                <div class="p-3">
+                                    <p class="mb-3">Balance the following chemical equation:</p>
+                                    <p class="text-center text-2xl chem-formula my-4">
+                                        Fe + O₂ → Fe₂O₃
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="section-card">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-bold">Options (6)</h3>
+                                <span class="text-sm text-indigo-600 font-semibold">
+                                    <i class="fas fa-info-circle"></i> Extended to 6 options!
+                                </span>
+                            </div>
+                            
+                            <div class="option-box correct">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="chem" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;">
+                                    <div class="font-bold text-xl w-8 pt-2">A</div>
+                                    <div class="flex-1 text-xl chem-formula">4Fe + 3O₂ → 2Fe₂O₃</div>
+                                </div>
+                                <div class="mt-2 text-green-700 font-semibold text-sm">
+                                    <i class="fas fa-check-circle"></i> Correct!
+                                </div>
+                            </div>
+
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="chem" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">B</div><div class="flex-1 text-xl chem-formula">2Fe + O₂ → Fe₂O₃</div></div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="chem" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">C</div><div class="flex-1 text-xl">Already balanced</div></div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="chem" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">D</div><div class="flex-1 text-xl chem-formula">3Fe + 2O₂ → Fe₂O₃</div></div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="chem" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">E</div><div class="flex-1 text-xl chem-formula">Fe + 2O₂ → 2Fe₂O₃</div></div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="chem" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">F</div><div class="flex-1 text-xl">Cannot be balanced</div></div></div>
+                        </div>
+                    </div>
+
+                    <!-- ORAL ENGLISH EXAMPLE -->
+                    <div id="oral-example" class="example-content" style="display:none;">
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3">Question Text</h3>
+                            <div class="editor-box">
+                                <p class="text-lg">Listen to the audio and choose the correct stress pattern:</p>
+                            </div>
+                        </div>
+
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+                                <i class="fas fa-microphone text-indigo-600"></i>
+                                Audio Upload
+                                <span class="badge badge-new">NEW!</span>
+                            </h3>
+                            <p class="text-gray-600 mb-4 text-sm">For oral English, listening comprehension, pronunciation questions</p>
+                            
+                            <div class="audio-player">
+                                <button class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 text-xl">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <div class="flex-1">
+                                    <div class="font-semibold mb-2">pronunciation_water.mp3</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 40%"></div>
+                                    </div>
+                                    <div class="text-sm mt-1 opacity-80">0:18 / 0:45</div>
+                                </div>
+                                <button class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-4">Options (3)</h3>
+                            <div class="option-box correct">
+                                <div class="flex items-start gap-4">
+                                    <input type="radio" name="oral" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;">
+                                    <div class="font-bold text-xl w-8 pt-2">A</div>
+                                    <div class="flex-1 text-lg"><strong>WA</strong>ter (first syllable) ✓</div>
+                                </div>
+                            </div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="oral" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">B</div><div class="flex-1 text-lg">wa<strong>TER</strong> (second syllable)</div></div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="oral" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">C</div><div class="flex-1 text-lg">Equal stress</div></div></div>
+                        </div>
+                    </div>
+
+                    <!-- MULTIPLE CORRECT EXAMPLE -->
+                    <div id="multiple-example" class="example-content" style="display:none;">
+                        <div class="section-card">
+                            <h3 class="text-lg font-bold mb-3">Question Text</h3>
+                            <div class="editor-box">
+                                <p class="text-red-600 font-bold mb-2">⚠️ Select ALL correct answers:</p>
+                                <p class="text-lg">Which of the following are prime numbers?</p>
+                            </div>
+                        </div>
+
+                        <div class="section-card">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-bold">Options (5)</h3>
+                                <label class="flex items-center gap-2 px-4 py-2 bg-amber-50 border-2 border-amber-400 rounded-lg font-semibold text-amber-900">
+                                    <input type="checkbox" checked class="w-5 h-5">
+                                    <i class="fas fa-check-double"></i>
+                                    Allow Multiple Correct
+                                </label>
+                            </div>
+
+                            <div class="option-box correct"><div class="flex items-start gap-4"><input type="checkbox" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;"><div class="font-bold text-xl w-8 pt-2">A</div><div class="flex-1 text-lg">2</div></div><div class="mt-2 text-green-700 font-semibold text-sm"><i class="fas fa-check"></i> Correct (1 of 3)</div></div>
+                            <div class="option-box correct"><div class="flex items-start gap-4"><input type="checkbox" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;"><div class="font-bold text-xl w-8 pt-2">B</div><div class="flex-1 text-lg">3</div></div><div class="mt-2 text-green-700 font-semibold text-sm"><i class="fas fa-check"></i> Correct (2 of 3)</div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="checkbox" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">C</div><div class="flex-1 text-lg">4</div></div></div>
+                            <div class="option-box correct"><div class="flex items-start gap-4"><input type="checkbox" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;"><div class="font-bold text-xl w-8 pt-2">D</div><div class="flex-1 text-lg">5</div></div><div class="mt-2 text-green-700 font-semibold text-sm"><i class="fas fa-check"></i> Correct (3 of 3)</div></div>
+                            <div class="option-box"><div class="flex items-start gap-4"><input type="checkbox" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">E</div><div class="flex-1 text-lg">6</div></div></div>
+
+                            <div class="mt-4 p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+                                <p class="text-green-900 font-semibold"><i class="fas fa-check-circle"></i> 3 correct answers selected (A, B, D)</p>
+                                <p class="text-sm text-green-700 mt-1">Students must select all 3 to get full points</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- EDIT MODE -->
+                <div id="edit-mode" class="view-mode">
+                    <div class="mb-6">
+                        <button class="px-4 py-2 bg-white rounded-lg shadow hover:shadow-md inline-flex items-center gap-2 mb-4">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Questions
+                        </button>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-3xl font-bold text-gray-900">Edit Question</h2>
+                            <span class="badge badge-edit">
+                                <i class="fas fa-edit"></i> EDITING MODE
+                            </span>
+                        </div>
+                        <p class="text-gray-600 mt-1">Modify existing question - ID: #Q-2024-MTH-0042</p>
+                    </div>
+
+                    <!-- Pre-filled Math Question -->
+                    <div class="section-card">
+                        <h3 class="text-lg font-bold mb-4">Question Type</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <button class="p-4 border-2 border-indigo-600 bg-indigo-50 rounded-xl font-semibold text-center">
+                                <div class="text-2xl mb-2">📝</div>
+                                <div class="text-sm">Multiple Choice</div>
+                                <div class="text-xs text-indigo-600 mt-1">✓ Current</div>
+                            </button>
+                            <button class="p-4 border-2 border-gray-300 rounded-xl opacity-50 cursor-not-allowed text-center">
+                                <div class="text-2xl mb-2">✓✗</div>
+                                <div class="text-sm">True/False</div>
+                            </button>
+                            <button class="p-4 border-2 border-gray-300 rounded-xl opacity-50 cursor-not-allowed text-center">
+                                <div class="text-2xl mb-2">⌨️</div>
+                                <div class="text-sm">Fill Blank</div>
+                            </button>
+                            <button class="p-4 border-2 border-gray-300 rounded-xl opacity-50 cursor-not-allowed text-center">
+                                <div class="text-2xl mb-2">📄</div>
+                                <div class="text-sm">Essay</div>
+                            </button>
+                        </div>
+                        <p class="text-xs text-amber-600 mt-2"><i class="fas fa-exclamation-triangle"></i> Changing question type will reset options</p>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Subject <span class="text-red-500">*</span></label>
+                                <select class="w-full px-4 py-3 border-2 border-amber-400 rounded-xl">
+                                    <option selected>Mathematics</option>
+                                    <option>Physics</option>
+                                    <option>Chemistry</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Topic</label>
+                                <select class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl">
+                                    <option selected>Quadratic Equations</option>
+                                    <option>Algebra</option>
+                                    <option>Geometry</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-bold">Question Text</h3>
+                            <div class="text-xs text-gray-500">Last edited: 2 days ago</div>
+                        </div>
+                        <div class="editor-box focused border-amber-400">
+                            <div class="toolbar mb-3">
+                                <button class="toolbar-btn"><i class="fas fa-bold"></i></button>
+                                <button class="toolbar-btn"><i class="fas fa-italic"></i></button>
+                                <button class="toolbar-btn active"><i class="fas fa-square-root-alt"></i> fx</button>
+                                <button class="toolbar-btn"><i class="fas fa-image"></i></button>
+                            </div>
+                            <div class="p-3">
+                                <p class="text-gray-900 mb-3">Solve the quadratic equation:</p>
+                                <p class="text-center text-3xl latex-text my-4">x² - 7x + 12 = 0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold">Options (4)</h3>
+                            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                                <i class="fas fa-plus"></i> Add Option (E)
+                            </button>
+                        </div>
+
+                        <div class="option-box correct border-amber-400">
+                            <div class="flex items-start gap-4">
+                                <input type="radio" name="edit-correct" checked class="w-5 h-5 mt-3" style="accent-color: #10b981;">
+                                <div class="font-bold text-xl w-8 pt-2">A</div>
+                                <div class="flex-1"><div class="bg-white p-3 rounded-lg border-2 border-amber-300"><p class="text-xl latex-text">x = 3 or x = 4</p></div></div>
+                                <button class="p-2 hover:bg-red-50 rounded-lg text-red-600"><i class="fas fa-trash"></i></button>
+                            </div>
+                            <div class="mt-2 flex items-center gap-2 text-green-700 font-semibold text-sm">
+                                <i class="fas fa-check-circle"></i> Correct Answer
+                            </div>
+                        </div>
+                        <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="edit-correct" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">B</div><div class="flex-1"><div class="bg-white p-3 rounded-lg border border-gray-200"><p class="text-xl latex-text">x = 2 or x = 6</p></div></div><button class="p-2 hover:bg-red-50 rounded-lg text-red-600"><i class="fas fa-trash"></i></button></div></div>
+                        <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="edit-correct" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">C</div><div class="flex-1"><div class="bg-white p-3 rounded-lg border border-gray-200"><p class="text-xl latex-text">x = 1 or x = 12</p></div></div><button class="p-2 hover:bg-red-50 rounded-lg text-red-600"><i class="fas fa-trash"></i></button></div></div>
+                        <div class="option-box"><div class="flex items-start gap-4"><input type="radio" name="edit-correct" class="w-5 h-5 mt-3"><div class="font-bold text-xl w-8 pt-2">D</div><div class="flex-1"><div class="bg-white p-3 rounded-lg border border-gray-200"><p class="text-xl">No real solution</p></div></div><button class="p-2 hover:bg-red-50 rounded-lg text-red-600"><i class="fas fa-trash"></i></button></div></div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3 class="text-lg font-bold mb-4">Additional Settings</h3>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Difficulty</label>
+                                <select class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                    <option>EASY</option>
+                                    <option selected>MEDIUM</option>
+                                    <option>HARD</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Year</label>
+                                <input type="number" value="2024" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Exam Type</label>
+                                <select class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                                    <option selected>JAMB</option>
+                                    <option>WAEC</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-2">Points</label>
+                                <input type="number" value="2" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button class="px-8 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50">
+                            Cancel Changes
+                        </button>
+                        <button class="flex-1 px-8 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg">
+                            <i class="fas fa-save"></i> Update Question
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-8 grid grid-cols-3 gap-6">
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="text-4xl mb-3">📐</div>
+                <h3 class="font-bold text-lg mb-2">Math Equations</h3>
+                <p class="text-gray-600 text-sm">LaTeX support for complex formulas and equations</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="text-4xl mb-3">🎧</div>
+                <h3 class="font-bold text-lg mb-2">Audio Support</h3>
+                <p class="text-gray-600 text-sm">Upload audio files for oral English questions</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="text-4xl mb-3">🔢</div>
+                <h3 class="font-bold text-lg mb-2">2-10 Options</h3>
+                <p class="text-gray-600 text-sm">Dynamic options from A to J</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchMode(mode) {
+            // Update mode display
+            document.querySelectorAll('.view-mode').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.getElementById(mode + '-mode').classList.add('active');
+            
+            // Update mode buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update URL
+            document.getElementById('url-path').textContent = mode === 'create' ? 'create' : 'edit/q-2024-mth-0042';
+        }
+
+        function switchExample(example) {
+            // Hide all examples
+            document.querySelectorAll('.example-content').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // Show selected example
+            document.getElementById(example + '-example').style.display = 'block';
+            
+            // Update tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

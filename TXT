@@ -1,0 +1,24 @@
+frontend/
+├── Configuration Files
+│   ├── package.json (all dependencies)
+│   ├── vite.config.ts (build settings - detailed comments)
+│   ├── tailwind.config.js (styling - detailed comments)
+│   ├── tsconfig.json (TypeScript - detailed comments)
+│   ├── postcss.config.js
+│   ├── .env.example (environment template)
+│   ├── .gitignore
+│   └── README.md (setup guide)
+│
+├── HTML & CSS
+│   ├── index.html (entry page)
+│   └── src/index.css (global styles + Tailwind)
+│
+├── React Setup
+│   ├── src/main.tsx (entry point - detailed comments)
+│   ├── src/App.tsx (routing - detailed comments)
+│   └── src/types/index.ts (TypeScript types - 300+ lines, detailed comments)
+│
+└── Placeholder Pages (all functional)
+    ├── auth/ (Login, Register)
+    ├── student/ (Dashboard, Subjects, Exam, Results)
+    └── admin/ (Dashboard, Questions, QuestionCreate)

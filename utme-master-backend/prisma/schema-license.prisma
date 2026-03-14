@@ -1,0 +1,176 @@
+// ==========================================
+// LICENSE SYSTEM - Database Schema
+// ==========================================
+// Add these models to your existing schema.prisma
+//
+// This creates the license and activation system:
+// - License keys
+// - Hardware binding
+// - Trial management
+// - Feature gating
+
+// ==========================================
+// LICENSE TIER ENUM
+// ==========================================
+enum LicenseTier {
+  TRIAL       // 30 days, 50 students, 500 questions, watermark
+  BASIC       // ₦50,000, 200 students, 5,000 questions
+  PREMIUM     // ₦100,000, unlimited students, 10,000+ questions
+  ENTERPRISE  // ₦200,000, white-label, source code, lifetime
+}
+
+// ==========================================
+// LICENSE STATUS ENUM
+// ==========================================
+enum LicenseStatus {
+  ACTIVE      // Currently active and valid
+  EXPIRED     // Trial ended or subscription expired
+  SUSPENDED   // Manually suspended by admin
+  REVOKED     // License key revoked (fraud, refund, etc.)
+}
+
+// ==========================================
+// LICENSE MODEL
+// ==========================================
+// Master license record for each installation
+
+model License {
+  id String @id @default(uuid())
+  
+  // License key (format: UTME-XXXX-XXXX-XXXX-XXXX)
+  // Example: UTME-A1B2-C3D4-E5F6-G7H8
+  licenseKey String @unique @map("license_key")
+  
+  // Which tier is this license?
+  tier LicenseTier @default(TRIAL)
+  
+  // License status
+  status LicenseStatus @default(ACTIVE)
+  
+  // Organization/school name
+  organizationName String? @map("organization_name")
+  contactEmail     String? @map("contact_email")
+  contactPhone     String? @map("contact_phone")
+  
+  // Hardware binding (SHA256 hash)
+  // This is a hash of: CPU ID + Motherboard Serial + MAC Address
+  // Ensures license can only be used on one computer
+  hardwareFingerprint String? @unique @map("hardware_fingerprint")
+  
+  // Is this license activated?
+  isActivated Boolean @default(false) @map("is_activated")
+  activatedAt DateTime? @map("activated_at")
+  
+  // Trial period
+  trialStartDate DateTime? @map("trial_start_date")
+  trialEndDate   DateTime? @map("trial_end_date")
+  
+  // Subscription dates (for BASIC/PREMIUM)
+  purchaseDate DateTime? @map("purchase_date")
+  expiryDate   DateTime? @map("expiry_date")
+  
+  // Usage limits (based on tier)
+  maxStudents  Int @default(50)  @map("max_students")  // Max students allowed
+  maxQuestions Int @default(500) @map("max_questions") // Max questions in bank
+  
+  // Current usage
+  currentStudents  Int @default(0) @map("current_students")
+  currentQuestions Int @default(0) @map("current_questions")
+  
+  // Features enabled
+  features Json @default("{}") // JSON object of enabled features
+  
+  // Renewal tracking
+  lastRenewalDate DateTime? @map("last_renewal_date")
+  autoRenew       Boolean   @default(false) @map("auto_renew")
+  
+  // Notes (admin only)
+  notes String? @db.Text
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  activations LicenseActivation[]
+  
+  @@map("licenses")
+  @@index([licenseKey])
+  @@index([status])
+  @@index([tier])
+  @@index([hardwareFingerprint])
+}
+
+// ==========================================
+// LICENSE ACTIVATION MODEL
+// ==========================================
+// Tracks activation attempts and history
+
+model LicenseActivation {
+  id String @id @default(uuid())
+  
+  // Which license?
+  licenseId String @map("license_id")
+  license   License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  
+  // Hardware info at time of activation
+  hardwareFingerprint String @map("hardware_fingerprint")
+  cpuId               String @map("cpu_id")
+  motherboardSerial   String @map("motherboard_serial")
+  macAddress          String @map("mac_address")
+  
+  // Computer info
+  computerName String? @map("computer_name")
+  osVersion    String? @map("os_version")
+  
+  // IP address
+  ipAddress String? @map("ip_address")
+  
+  // Was this successful?
+  success Boolean @default(true)
+  
+  // Error message if failed
+  errorMessage String? @map("error_message")
+  
+  // Type of action
+  action String // "ACTIVATE", "DEACTIVATE", "VERIFY", "TRANSFER"
+  
+  // Timestamp
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("license_activations")
+  @@index([licenseId])
+  @@index([hardwareFingerprint])
+}
+
+// ==========================================
+// UPDATE USER MODEL (ADD THIS)
+// ==========================================
+// Add to your existing User model:
+
+// licenseId String? @map("license_id")
+
+// ==========================================
+// FEATURE FLAGS
+// ==========================================
+// Features stored in License.features JSON:
+//
+// {
+//   "whiteLabel": true/false,           // Remove UTME Master branding
+//   "customLogo": true/false,           // Use custom logo
+//   "exportReports": true/false,        // Export as PDF
+//   "advancedAnalytics": true/false,    // Detailed analytics
+//   "bulkImport": true/false,           // Import questions from Excel
+//   "apiAccess": true/false,            // Access REST API
+//   "multipleAdmins": true/false,       // More than 1 admin
+//   "customQuestionTypes": true/false,  // Create custom question types
+//   "offlineMode": true/false,          // Work without internet
+//   "prioritySupport": true/false       // 24/7 support
+// }
+
+// ==========================================
+// LICENSE KEY FORMAT
+// ==========================================
+// Format: UTME-XXXX-XXXX-XXXX-XXXX
+// 
+// Example: UTME-A1B2-C3D4-E5F6-G7H8

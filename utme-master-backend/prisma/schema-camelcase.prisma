@@ -1,0 +1,345 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExamQuestion {
+  id           String   @id @default(cuid())
+  examId       String
+  questionId   String
+  orderNumber  Int
+  points       Int      @default(1)
+  questionData Json
+  createdAt    DateTime @default(now())
+  
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@unique([examId, questionId])
+  @@index([examId])
+  @@index([questionId])
+  @@map("exam_questions")
+}
+
+model Exam {
+  id                   String    @id @default(cuid())
+  title                String
+  description          String?
+  duration             Int
+  totalMarks           Int
+  passMarks            Int
+  totalQuestions       Int
+  subjectIds           Json
+  questionsPerSubject  Json?
+  randomizeQuestions   Boolean   @default(false)
+  randomizeOptions     Boolean   @default(false)
+  showResults          Boolean   @default(true)
+  allowReview          Boolean   @default(true)
+  allowRetake          Boolean   @default(false)
+  difficulties         Json?
+  yearFrom             Int?
+  yearTo               Int?
+  isActive             Boolean   @default(true)
+  isPublished          Boolean   @default(false)
+  startsAt             DateTime?
+  endsAt               DateTime?
+  createdBy            String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  examQuestions ExamQuestion[]
+  creator       User           @relation(fields: [createdBy], references: [id])
+  studentExams  StudentExam[]
+
+  @@index([createdBy])
+  @@index([isPublished, isActive])
+  @@map("exams")
+}
+
+model LicenseActivation {
+  id                  String   @id @default(cuid())
+  licenseId           String
+  hardwareFingerprint String
+  cpuId               String
+  motherboardSerial   String
+  macAddress          String
+  computerName        String?
+  osVersion           String?
+  ipAddress           String?
+  success             Boolean  @default(true)
+  errorMessage        String?
+  action              String
+  createdAt           DateTime @default(now())
+  
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([hardwareFingerprint])
+  @@index([licenseId])
+  @@map("license_activations")
+}
+
+model License {
+  id                  String            @id @default(cuid())
+  licenseKey          String            @unique
+  tier                LicenseTier       @default(TRIAL)
+  status              LicenseStatus     @default(ACTIVE)
+  organizationName    String?
+  contactEmail        String?
+  contactPhone        String?
+  hardwareFingerprint String?           @unique
+  isActivated         Boolean           @default(false)
+  activatedAt         DateTime?
+  trialStartDate      DateTime?
+  trialEndDate        DateTime?
+  purchaseDate        DateTime?
+  expiryDate          DateTime?
+  maxStudents         Int               @default(50)
+  maxQuestions        Int               @default(500)
+  currentStudents     Int               @default(0)
+  currentQuestions    Int               @default(0)
+  features            Json              @default("{}")
+  lastRenewalDate     DateTime?
+  autoRenew           Boolean           @default(false)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  licenseActivations LicenseActivation[]
+
+  @@index([hardwareFingerprint])
+  @@index([licenseKey])
+  @@index([status])
+  @@index([tier])
+  @@map("licenses")
+}
+
+model Question {
+  id                String       @id @default(cuid())
+  questionText      String
+  questionType      QuestionType @default(MCQ)
+  options           Json
+  optionA           String?
+  optionB           String?
+  optionC           String?
+  optionD           String?
+  correctAnswer     String?
+  explanation       String?
+  images            Json?
+  audioUrl          String?
+  videoUrl          String?
+  allowMultiple     Boolean      @default(false)
+  timeLimitSeconds  Int?
+  points            Int          @default(1)
+  difficulty        Difficulty
+  year              Int?
+  examType          ExamType     @default(JAMB)
+  subjectId         String
+  topicId           String?
+  imageUrl          String?
+  isActive          Boolean      @default(true)
+  createdBy         String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  examQuestions   ExamQuestion[]
+  creator         User            @relation(fields: [createdBy], references: [id])
+  subject         Subject         @relation(fields: [subjectId], references: [id])
+  topic           Topic?          @relation(fields: [topicId], references: [id])
+  studentAnswers  StudentAnswer[]
+
+  @@index([createdBy])
+  @@index([difficulty])
+  @@index([examType])
+  @@index([subjectId])
+  @@index([topicId])
+  @@index([year])
+  @@map("questions")
+}
+
+model StudentAnswer {
+  id                String       @id @default(cuid())
+  studentExamId     String
+  questionId        String
+  answer            Json?
+  isCorrect         Boolean?
+  pointsEarned      Float        @default(0)
+  timeSpent         Int?
+  answeredAt        DateTime?
+  flaggedForReview  Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  question    Question    @relation(fields: [questionId], references: [id])
+  studentExam StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+
+  @@unique([studentExamId, questionId])
+  @@index([questionId])
+  @@index([studentExamId])
+  @@map("student_answers")
+}
+
+model StudentExam {
+  id                String         @id @default(cuid())
+  examId            String
+  studentId         String
+  status            ExamStatus     @default(NOT_STARTED)
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  timeSpent         Int            @default(0)
+  timeRemaining     Int?
+  totalQuestions    Int
+  answeredQuestions Int            @default(0)
+  correctAnswers    Int            @default(0)
+  wrongAnswers      Int            @default(0)
+  score             Float          @default(0)
+  totalScore        Float          @default(0)
+  passed            Boolean?
+  grade             String?
+  questionOrder     Json
+  autoSubmitted     Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  answers StudentAnswer[]
+  exam    Exam           @relation(fields: [examId], references: [id])
+  student User           @relation(fields: [studentId], references: [id])
+
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([status])
+  @@index([studentId])
+  @@map("student_exams")
+}
+
+model StudentProgress {
+  id               String    @id @default(cuid())
+  studentId        String
+  subjectId        String
+  totalQuestions   Int       @default(0)
+  correctAnswers   Int       @default(0)
+  wrongAnswers     Int       @default(0)
+  averageScore     Float     @default(0)
+  lastPracticeDate DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  student User @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, subjectId])
+  @@index([studentId])
+  @@index([subjectId])
+  @@map("student_progress")
+}
+
+model Subject {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  code        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  questions Question[]
+  topics    Topic[]
+
+  @@index([code])
+  @@map("subjects")
+}
+
+model Topic {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  subjectId   String
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  questions Question[]
+  subject   Subject    @relation(fields: [subjectId], references: [id])
+
+  @@index([subjectId])
+  @@map("topics")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String
+  firstName        String
+  lastName         String
+  role             UserRole  @default(STUDENT)
+  isActive         Boolean   @default(true)
+  lastLogin        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  licenseExpiresAt DateTime?
+  phone            String?   @unique
+  licenseId        String?
+  licenseTier      LicenseTier @default(TRIAL)
+  
+  exams            Exam[]
+  questions        Question[]
+  studentExams     StudentExam[]
+  studentProgress  StudentProgress[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ExamStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PAUSED
+  SUBMITTED
+  EXPIRED
+  GRADING
+}
+
+enum ExamType {
+  JAMB
+  WAEC
+  NECO
+  MOCK
+  PRACTICE
+}
+
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+enum LicenseTier {
+  TRIAL
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  FILL_BLANK
+  ESSAY
+  MATCHING
+}
+
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+}

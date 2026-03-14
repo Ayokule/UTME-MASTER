@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-gray-50;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-600 to-secondary-600 text-white font-semibold px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200;
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-lg p-6 border border-gray-100;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none;
+  }
+}
+
+/* Add spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+/* Rich Text Editor Styles */
+.ql-toolbar {
+  background: white;
+  border: 2px solid #e5e7eb !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 12px !important;
+}
+
+.ql-container {
+  border: 2px solid #e5e7eb !important;
+  border-top: none !important;
+  border-radius: 0 0 12px 12px !important;
+  font-size: 16px;
+  min-height: 200px;
+}
+
+.ql-editor {
+  font-family: inherit;
+  padding: 16px !important;
+}
+
+.ql-container.ql-snow:focus-within {
+  border-color: #6366f1 !important;
+}
+/* ==========================================
+   RICH TEXT EDITOR STYLES
+   ========================================== */
+
+/* Editor container */
+.rich-text-editor {
+  margin-bottom: 1rem;
+}
+
+/* Editor toolbar */
+.ql-toolbar {
+  background: white;
+  border: 2px solid #e5e7eb !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 12px !important;
+}
+
+/* Editor content area */
+.ql-container {
+  border: 2px solid #e5e7eb !important;
+  border-top: none !important;
+  border-radius: 0 0 12px 12px !important;
+  font-size: 16px;
+  min-height: 200px;
+}
+
+/* Editor font */
+.ql-editor {
+  font-family: inherit;
+  padding: 16px !important;
+}
+
+/* Placeholder */
+.ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: normal;
+}
+
+/* Focus state */
+.ql-container.ql-snow:focus-within {
+  border-color: #6366f1 !important;
+}
+
+/* Toolbar buttons */
+.ql-snow .ql-stroke {
+  stroke: #4b5563;
+}
+
+.ql-snow .ql-fill {
+  fill: #4b5563;
+}
+
+/* Active button */
+.ql-snow .ql-toolbar button:hover,
+.ql-snow.ql-toolbar button:hover,
+.ql-snow .ql-toolbar button.ql-active,
+.ql-snow.ql-toolbar button.ql-active {
+  color: #6366f1;
+}
+
+.ql-snow .ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button.ql-active .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke {
+  stroke: #6366f1;
+}
+
+/* Read-only mode */
+.ql-editor[contenteditable="false"] {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+}
