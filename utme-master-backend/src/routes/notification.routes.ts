@@ -4,8 +4,8 @@
 // API endpoints for notification management
 
 import { Router } from 'express'
-import { authenticateToken } from '../middleware/auth.middleware'
-import { requireRole } from '../middleware/role.middleware'
+import { authenticate } from '../middleware/auth.middleware'
+import { authorizeRole } from '../middleware/auth.middleware'
 import {
   getUserNotifications,
   getUnreadCount,
@@ -21,7 +21,7 @@ import {
 const router = Router()
 
 // All routes require authentication
-router.use(authenticateToken)
+router.use(authenticate)
 
 // User notification routes
 router.get('/', getUserNotifications)
@@ -31,9 +31,9 @@ router.patch('/mark-all-read', markAllAsRead)
 router.delete('/:notificationId', deleteNotification)
 
 // Admin notification routes
-router.post('/', requireRole(['ADMIN', 'SUPER_ADMIN']), createNotification)
-router.get('/admin/all', requireRole(['ADMIN', 'SUPER_ADMIN']), getAllNotifications)
-router.get('/admin/stats', requireRole(['ADMIN', 'SUPER_ADMIN']), getNotificationStats)
-router.post('/admin/system-announcement', requireRole(['ADMIN', 'SUPER_ADMIN']), sendSystemAnnouncement)
+router.post('/', authorizeRole(['ADMIN', 'SUPER_ADMIN']), createNotification)
+router.get('/admin/all', authorizeRole(['ADMIN', 'SUPER_ADMIN']), getAllNotifications)
+router.get('/admin/stats', authorizeRole(['ADMIN', 'SUPER_ADMIN']), getNotificationStats)
+router.post('/admin/system-announcement', authorizeRole(['ADMIN', 'SUPER_ADMIN']), sendSystemAnnouncement)
 
 export default router

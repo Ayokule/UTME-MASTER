@@ -5,7 +5,7 @@
 
 import { Router } from 'express'
 import { authenticate } from '../middleware/auth.middleware'
-import { requireRole } from '../middleware/role.middleware'
+import { authorizeRole } from '../middleware/auth.middleware'
 import * as settingsController from '../controllers/settings.controller'
 
 const router = Router()
@@ -15,7 +15,7 @@ const router = Router()
 // ==========================================
 // All settings routes require admin authentication
 router.use(authenticate)
-router.use(requireRole(['ADMIN']))
+router.use(authorizeRole(['ADMIN']))
 
 // ==========================================
 // ROUTES

@@ -122,8 +122,8 @@ export const createQuestion = asyncHandler(async (req: Request, res: Response) =
   // req.body contains JSON data sent from frontend
   const data = req.body
   
-  // Create question via service
-  const question = await questionService.createQuestion(data)
+  // Create question via service (pass user ID for audit tracking)
+  const question = await questionService.createQuestion(data, req.user!.id)
   
   // Send success response
   // Status 201 = Created (new resource created)

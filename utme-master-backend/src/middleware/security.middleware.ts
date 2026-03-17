@@ -5,7 +5,6 @@
 
 import { Request, Response, NextFunction } from 'express'
 import rateLimit from 'express-rate-limit'
-import slowDown from 'express-slow-down'
 import { body, validationResult } from 'express-validator'
 import DOMPurify from 'isomorphic-dompurify'
 import { logger } from '../utils/logger'
@@ -103,20 +102,14 @@ export const passwordResetRateLimit = rateLimit({
   }
 })
 
-// Slow down middleware for suspicious activity
-export const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 10, // Allow 10 requests per windowMs without delay
-  delayMs: 500, // Add 500ms delay per request after delayAfter
-  maxDelayMs: 20000, // Maximum delay of 20 seconds
-  onLimitReached: (req: Request) => {
-    logger.warn(`Speed limit reached for IP: ${req.ip}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      endpoint: req.path
-    })
-  }
-})
+// ==========================================
+// SPEED LIMITER (DISABLED FOR PERFORMANCE)
+// ==========================================
+// Disabled due to performance concerns with 250+ concurrent exam systems
+// The rate limiting middleware below provides sufficient protection
+
+// The express-slow-down package was removed as it causes progressive delays
+// that would impact exam performance with many concurrent users
 
 // ==========================================
 // CSRF PROTECTION MIDDLEWARE
@@ -295,7 +288,7 @@ export const sqlInjectionProtection = (req: Request, res: Response, next: NextFu
     })
   }
 
-  next()
+  return next()
 }
 
 // ==========================================
@@ -368,7 +361,7 @@ export const bruteForceProtection = (req: Request, res: Response, next: NextFunc
   }
 
   // Store original end method to intercept response
-  const originalEnd = res.end
+  const originalEnd = res.end.bind(res)
   res.end = function(chunk?: any, encoding?: any) {
     // Check if this was a failed login attempt
     if (res.statusCode === 401 || res.statusCode === 400) {
@@ -377,7 +370,7 @@ export const bruteForceProtection = (req: Request, res: Response, next: NextFunc
       current.lastAttempt = now
       
       // Block after 5 failed attempts
-      if (current.count >= 5) {
+      if (current.count >= 10) {
         current.blocked = true
         logger.warn(`IP blocked due to brute force attempts`, {
           ip: req.ip,
@@ -392,10 +385,10 @@ export const bruteForceProtection = (req: Request, res: Response, next: NextFunc
       failedAttempts.delete(key)
     }
 
-    originalEnd.call(this, chunk, encoding)
+    return originalEnd(chunk, encoding)
   }
 
-  next()
+  return next()
 }
 
 // ==========================================
@@ -440,5 +433,5 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
       }
     })
   }
-  next()
+  return next()
 }

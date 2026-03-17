@@ -50,7 +50,7 @@ declare global {
 
 export async function authenticate(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) {
   try {

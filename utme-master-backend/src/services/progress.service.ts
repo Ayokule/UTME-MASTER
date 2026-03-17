@@ -486,11 +486,15 @@ function analyzeTopics(answers: any[]): { weakTopics: string[]; strongTopics: st
     return acc
   }, {} as Record<string, { correct: number; total: number }>)
 
-  const topics = Object.entries(topicPerformance).map(([topicId, performance]) => ({
-    topicId,
-    accuracy: performance.total > 0 ? (performance.correct / performance.total) * 100 : 0,
-    total: performance.total
-  }))
+  const topics: Array<{ topicId: string; accuracy: number; total: number }> = []
+  for (const [topicId, performance] of Object.entries(topicPerformance)) {
+    const p = performance as { correct: number; total: number }
+    topics.push({
+      topicId,
+      accuracy: p.total > 0 ? (p.correct / p.total) * 100 : 0,
+      total: p.total
+    })
+  }
 
   // Filter topics with sufficient data (at least 3 questions)
   const significantTopics = topics.filter(topic => topic.total >= 3)

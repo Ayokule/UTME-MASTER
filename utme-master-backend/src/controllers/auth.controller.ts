@@ -65,7 +65,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
   ensureAuthenticated(req.user)
   
-  const user = await authService.getCurrentUser(req.user.id)
+  const user = await authService.getCurrentUser(req.user!.id)
   
   res.status(200).json({
     success: true,
@@ -79,7 +79,7 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
 export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
   ensureAuthenticated(req.user)
   
-  const user = await authService.updateProfile(req.user.id, req.body)
+  const user = await authService.updateProfile(req.user!.id, req.body)
   
   res.status(200).json({
     success: true,
@@ -96,7 +96,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   
   const { currentPassword, newPassword } = req.body
   
-  await authService.changePassword(req.user.id, currentPassword, newPassword)
+  await authService.changePassword(req.user!.id, currentPassword, newPassword)
   
   res.status(200).json({
     success: true,
@@ -125,10 +125,11 @@ export const requestPasswordReset = asyncHandler(async (req: Request, res: Respo
   const { email } = req.body
   
   if (!email) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Email is required' }
     })
+    return
   }
   
   const result = await authService.requestPasswordReset(email)
@@ -146,10 +147,11 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
   const { token, newPassword } = req.body
   
   if (!token || !newPassword) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Token and new password are required' }
     })
+    return
   }
   
   const result = await authService.resetPassword(token, newPassword)

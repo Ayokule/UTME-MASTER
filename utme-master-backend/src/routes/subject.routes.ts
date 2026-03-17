@@ -9,7 +9,7 @@
 import { Router } from 'express'
 import * as subjectController from '../controllers/subject.controller'
 import { authenticate, authorizeRole } from '../middleware/auth.middleware'
-import { validateBody, validateParams } from '../middleware/validation.middleware'
+import { validateBody, validate } from '../middleware/validation.middleware'
 import { 
   createSubjectSchema, 
   createTopicSchema, 
@@ -57,13 +57,13 @@ router.get(
 
 router.get(
   '/:id',
-  validateParams(subjectIdSchema),
+  validate(subjectIdSchema),
   subjectController.getSubjectById
 )
 
 router.get(
   '/:id/topics',
-  validateParams(subjectIdSchema),
+  validate(subjectIdSchema),
   subjectController.getTopicsBySubject
 )
 
@@ -87,7 +87,7 @@ router.get(
 
 router.get(
   '/:id/statistics',
-  validateParams(subjectIdSchema),
+  validate(subjectIdSchema),
   subjectController.getSubjectStatistics
 )
 
@@ -130,7 +130,7 @@ router.post(
   '/:id/topics',
   authenticate,                    // Must be logged in
   authorizeRole(['ADMIN']),       // Must be ADMIN
-  validateParams(subjectIdSchema),
+  validate(subjectIdSchema),
   validateBody(createTopicSchema),
   subjectController.createTopic
 )

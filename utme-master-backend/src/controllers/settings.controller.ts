@@ -32,11 +32,11 @@ export const getSystemSettings = asyncHandler(async (req: Request, res: Response
 export const updateSystemSettings = asyncHandler(async (req: Request, res: Response) => {
   ensureAuthenticated(req.user)
   
-  const settings = await settingsService.updateSystemSettings(req.body, req.user.id)
+  const settings = await settingsService.updateSystemSettings(req.body, req.user!.id)
   
-  logger.info(`System settings updated by admin: ${req.user.email}`)
+  logger.info(`System settings updated by admin: ${req.user!.email}`)
   
-  res.json({
+  return res.json({
     success: true,
     message: 'System settings updated successfully',
     data: { settings }
@@ -51,11 +51,11 @@ export const updateSystemSettings = asyncHandler(async (req: Request, res: Respo
 export const resetSystemSettings = asyncHandler(async (req: Request, res: Response) => {
   ensureAuthenticated(req.user)
   
-  const settings = await settingsService.resetToDefaultSettings(req.user.id)
+  const settings = await settingsService.resetToDefaultSettings(req.user!.id)
   
-  logger.info(`System settings reset to defaults by admin: ${req.user.email}`)
+  logger.info(`System settings reset to defaults by admin: ${req.user!.email}`)
   
-  res.json({
+  return res.json({
     success: true,
     message: 'System settings reset to defaults successfully',
     data: { settings }
@@ -81,15 +81,15 @@ export const testEmailConfiguration = asyncHandler(async (req: Request, res: Res
 
   const success = await emailService.testEmailConfiguration(testEmail)
   
-  logger.info(`Email configuration test requested by admin: ${req.user.email}`)
+  logger.info(`Email configuration test requested by admin: ${req.user!.email}`)
   
   if (success) {
-    res.json({
+    return res.json({
       success: true,
       message: 'Test email sent successfully'
     })
   } else {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: { message: 'Failed to send test email. Check SMTP configuration.' }
     })

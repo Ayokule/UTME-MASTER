@@ -28,9 +28,9 @@ export function throwForbidden(message?: string): never {
   throw new ForbiddenError(message || 'Access forbidden - Insufficient permissions')
 }
 
-export function ensureAuthenticated(user: any, message?: string): void {
+export function ensureAuthenticated(user: any, message?: string): asserts user is NonNullable<typeof user> {
   if (!user) {
-    throwUnauthorized(message)
+    throw new UnauthorizedError(message || 'Authentication required')
   }
 }
 
@@ -86,8 +86,8 @@ export function throwNotFound(resource: string, identifier?: string): never {
   throw new NotFoundError(message)
 }
 
-export function throwConflict(message: string, details?: any): never {
-  throw new ConflictError(message, details)
+export function throwConflict(message: string): never {
+  throw new ConflictError(message)
 }
 
 export function ensureExists<T>(resource: T | null | undefined, resourceName: string, identifier?: string): T {

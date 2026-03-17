@@ -29,7 +29,7 @@ interface ExamSession {
 
 interface NotificationData {
   id: string
-  type: 'info' | 'warning' | 'error' | 'success'
+  type: 'info' | 'warning' | 'error' | 'success' | 'exam_start' | 'exam_end' | 'system_maintenance'
   title: string
   message: string
   userId?: string

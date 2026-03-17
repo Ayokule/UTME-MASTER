@@ -17,9 +17,9 @@ export const getProgressSummary = asyncHandler(async (req: Request, res: Respons
   ensureAuthenticated(req.user)
 
   const timeRange = (req.query.range as '7d' | '30d' | '90d' | 'all') || '30d'
-  const summary = await progressService.getProgressSummary(req.user.id, timeRange)
+  const summary = await progressService.getProgressSummary(req.user!.id, timeRange)
 
-  logger.info(`Progress summary retrieved for student: ${req.user.id}`)
+  logger.info(`Progress summary retrieved for student: ${req.user!.id}`)
 
   res.json({
     success: true,
@@ -35,9 +35,9 @@ export const getSubjectProgress = asyncHandler(async (req: Request, res: Respons
   ensureAuthenticated(req.user)
 
   const timeRange = (req.query.range as '7d' | '30d' | '90d' | 'all') || '30d'
-  const subjects = await progressService.getSubjectProgress(req.user.id, timeRange)
+  const subjects = await progressService.getSubjectProgress(req.user!.id, timeRange)
 
-  logger.info(`Subject progress retrieved for student: ${req.user.id}`)
+  logger.info(`Subject progress retrieved for student: ${req.user!.id}`)
 
   res.json({
     success: true,
@@ -53,9 +53,9 @@ export const getPerformanceTrends = asyncHandler(async (req: Request, res: Respo
   ensureAuthenticated(req.user)
 
   const timeRange = (req.query.range as '7d' | '30d' | '90d' | 'all') || '30d'
-  const trends = await progressService.getPerformanceTrends(req.user.id, timeRange)
+  const trends = await progressService.getPerformanceTrends(req.user!.id, timeRange)
 
-  logger.info(`Performance trends retrieved for student: ${req.user.id}`)
+  logger.info(`Performance trends retrieved for student: ${req.user!.id}`)
 
   res.json({
     success: true,
@@ -70,9 +70,9 @@ export const getPerformanceTrends = asyncHandler(async (req: Request, res: Respo
 export const getStudyStreak = asyncHandler(async (req: Request, res: Response) => {
   ensureAuthenticated(req.user)
 
-  const streak = await progressService.getStudyStreak(req.user.id)
+  const streak = await progressService.getStudyStreak(req.user!.id)
 
-  logger.info(`Study streak retrieved for student: ${req.user.id}`)
+  logger.info(`Study streak retrieved for student: ${req.user!.id}`)
 
   res.json({
     success: true,
@@ -88,13 +88,13 @@ export const getProgressInsights = asyncHandler(async (req: Request, res: Respon
   ensureAuthenticated(req.user)
 
   // Generate insights based on progress data
-  const summary = await progressService.getProgressSummary(req.user.id, '30d')
-  const subjects = await progressService.getSubjectProgress(req.user.id, '30d')
-  const streak = await progressService.getStudyStreak(req.user.id)
+  const summary = await progressService.getProgressSummary(req.user!.id, '30d')
+  const subjects = await progressService.getSubjectProgress(req.user!.id, '30d')
+  const streak = await progressService.getStudyStreak(req.user!.id)
 
   const insights = generateInsights(summary, subjects, streak)
 
-  logger.info(`Progress insights generated for student: ${req.user.id}`)
+  logger.info(`Progress insights generated for student: ${req.user!.id}`)
 
   res.json({
     success: true,
@@ -131,7 +131,7 @@ export const getDetailedSubjectAnalysis = asyncHandler(async (req: Request, res:
     ]
   }
 
-  logger.info(`Detailed subject analysis retrieved for student: ${req.user.id}, subject: ${subjectId}`)
+  logger.info(`Detailed subject analysis retrieved for student: ${req.user!.id}, subject: ${subjectId}`)
 
   res.json({
     success: true,
@@ -156,16 +156,16 @@ export const updateProgress = asyncHandler(async (req: Request, res: Response) =
   }
 
   await progressService.updateStudentProgress(
-    req.user.id,
+    req.user!.id,
     subjectId,
     questionsAnswered,
     correctAnswers,
     timeSpent || 0
   )
 
-  logger.info(`Progress updated for student: ${req.user.id}, subject: ${subjectId}`)
+  logger.info(`Progress updated for student: ${req.user!.id}, subject: ${subjectId}`)
 
-  res.json({
+  return res.json({
     success: true,
     message: 'Progress updated successfully'
   })
@@ -175,10 +175,28 @@ export const updateProgress = asyncHandler(async (req: Request, res: Response) =
 // UTILITY FUNCTIONS
 // ==========================================
 
+interface SubjectProgress {
+  subjectName: string
+  accuracy: number
+  trend: 'up' | 'down' | 'stable'
+}
+
+interface StudyStreak {
+  currentStreak: number
+}
+
+interface ProgressSummary {
+  overallAccuracy: number
+  improvementRate: number
+  currentLevel: string
+  nextLevelProgress: number
+  totalQuestionsAnswered: number
+}
+
 function generateInsights(
-  summary: any,
-  subjects: any[],
-  streak: any
+  summary: ProgressSummary,
+  subjects: SubjectProgress[],
+  streak: StudyStreak
 ): {
   strengths: string[]
   weaknesses: string[]

@@ -1,7 +1,5 @@
 import { Request, Response } from 'express'
 import { asyncHandler } from '../middleware/error.middleware'
-import { validateBody, validateParams } from '../middleware/validation.middleware'
-import { createSubjectSchema, updateSubjectSchema, createTopicSchema, subjectIdSchema } from '../validation/subject.validation'
 
 export const uploadImage = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {

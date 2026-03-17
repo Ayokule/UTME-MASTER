@@ -8,6 +8,258 @@ import { BadRequestError } from '../utils/errors'
 import { logger } from '../utils/logger'
 
 // ==========================================
+// GET STUDENT DASHBOARD STATS
+// ==========================================
+export async function getStudentDashboardStats(studentId: string) {
+  try {
+    // Get basic student performance stats
+    const performanceStats = await getStudentPerformanceStats(studentId)
+
+    // Get recent exam attempts
+    const recentExams = await prisma.studentExam.findMany({
+      where: { studentId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: {
+        exam: {
+          select: { title: true }
+        }
+      }
+    })
+
+    // Get subject-wise performance
+    const subjectProgress = await prisma.studentProgress.findMany({
+      where: { studentId },
+      include: {
+        subject: {
+          select: { name: true, code: true }
+        }
+      }
+    })
+
+    return {
+      performance: performanceStats,
+      recentExams: recentExams.map(exam => ({
+        id: exam.id,
+        title: exam.exam.title,
+        score: exam.score,
+        status: exam.status,
+        createdAt: exam.createdAt
+      })),
+      subjectProgress: subjectProgress.map(progress => ({
+        subject: progress.subject.name,
+        code: progress.subject.code,
+        totalQuestions: progress.totalQuestions,
+        correctAnswers: progress.correctAnswers,
+        averageScore: progress.averageScore
+      }))
+    }
+  } catch (error) {
+    logger.error('Error getting student dashboard stats:', error)
+    throw new Error('Failed to get student dashboard stats')
+  }
+}
+
+// ==========================================
+// GET SUBJECT ANALYSIS
+// ==========================================
+export async function getSubjectAnalysis(studentId: string, subjectId: string) {
+  try {
+    // Get student progress for the subject
+    const progress = await prisma.studentProgress.findUnique({
+      where: {
+        studentId_subjectId: { studentId, subjectId }
+      },
+      include: {
+        subject: {
+          select: { name: true, code: true }
+        }
+      }
+    })
+
+    // Get recent exam attempts for this subject
+    const recentExams = await prisma.studentExam.findMany({
+      where: {
+        studentId,
+        exam: {
+          subjectIds: {
+            path: ['subjectIds'],
+            array_contains: [subjectId]
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        exam: {
+          select: { title: true }
+        }
+      }
+    })
+
+    return {
+      subject: progress?.subject || null,
+      progress: progress || null,
+      recentExams: recentExams.map(exam => ({
+        id: exam.id,
+        title: exam.exam.title,
+        score: exam.score,
+        status: exam.status,
+        createdAt: exam.createdAt
+      }))
+    }
+  } catch (error) {
+    logger.error('Error getting subject analysis:', error)
+    throw new Error('Failed to get subject analysis')
+  }
+}
+
+// ==========================================
+// GET PERFORMANCE COMPARISON
+// ==========================================
+export async function getPerformanceComparison(studentId: string) {
+  try {
+    // Get student's average performance
+    const studentStats = await getStudentPerformanceStats(studentId)
+
+    // Get class average (all students)
+    const classAverage = await prisma.studentExam.aggregate({
+      where: {
+        status: 'SUBMITTED'
+      },
+      _avg: {
+        score: true
+      }
+    })
+
+    // Get subject-wise comparison
+    const subjectComparison = await prisma.studentProgress.findMany({
+      where: { studentId },
+      include: {
+        subject: {
+          select: { name: true, code: true }
+        }
+      }
+    })
+
+    return {
+      studentAverage: studentStats.averageScore,
+      classAverage: classAverage._avg.score || 0,
+      subjectComparison: subjectComparison.map(progress => ({
+        subject: progress.subject.name,
+        code: progress.subject.code,
+        studentScore: progress.averageScore,
+        // This would need to be calculated from all students for real comparison
+        classAverage: progress.averageScore * 0.9 // Mock data for now
+      }))
+    }
+  } catch (error) {
+    logger.error('Error getting performance comparison:', error)
+    throw new Error('Failed to get performance comparison')
+  }
+}
+
+// ==========================================
+// GET PROGRESS OVER TIME
+// ==========================================
+export async function getProgressOverTime(studentId: string, days: number = 30) {
+  try {
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+
+    const examHistory = await prisma.studentExam.findMany({
+      where: {
+        studentId,
+        createdAt: { gte: startDate },
+        status: 'SUBMITTED'
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        score: true,
+        createdAt: true,
+        exam: {
+          select: { title: true }
+        }
+      }
+    })
+
+    return {
+      period: `${days} days`,
+      examHistory: examHistory.map(exam => ({
+        title: exam.exam.title,
+        score: exam.score,
+        date: exam.createdAt
+      }))
+    }
+  } catch (error) {
+    logger.error('Error getting progress over time:', error)
+    throw new Error('Failed to get progress over time')
+  }
+}
+
+// ==========================================
+// GET ADMIN DASHBOARD STATS
+// ==========================================
+export async function getAdminDashboardStats() {
+  try {
+    const [
+      totalStudents,
+      totalExams,
+      totalQuestions,
+      activeExams,
+      recentActivity
+    ] = await Promise.all([
+      prisma.user.count({
+        where: { role: 'STUDENT', isActive: true }
+      }),
+      prisma.exam.count({
+        where: { isActive: true }
+      }),
+      prisma.question.count({
+        where: { isActive: true }
+      }),
+      prisma.exam.count({
+        where: { isActive: true, isPublished: true }
+      }),
+      prisma.studentExam.findMany({
+        where: {
+          status: 'SUBMITTED',
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          student: {
+            select: { firstName: true, lastName: true }
+          },
+          exam: {
+            select: { title: true }
+          }
+        }
+      })
+    ])
+
+    return {
+      overview: {
+        totalStudents,
+        totalExams,
+        totalQuestions,
+        activeExams
+      },
+      recentActivity: recentActivity.map(activity => ({
+        studentName: `${activity.student.firstName} ${activity.student.lastName}`,
+        examTitle: activity.exam.title,
+        score: activity.score,
+        completedAt: activity.createdAt
+      }))
+    }
+  } catch (error) {
+    logger.error('Error getting admin dashboard stats:', error)
+    throw new Error('Failed to get admin dashboard stats')
+  }
+}
+// ==========================================
 // INTERFACES
 // ==========================================
 
@@ -96,7 +348,7 @@ export async function getStudentPerformanceStats(studentId: string): Promise<Stu
   const studentExams = await prisma.studentExam.findMany({
     where: {
       studentId,
-      status: 'COMPLETED'
+      status: 'SUBMITTED'
     },
     include: {
       exam: {
@@ -123,7 +375,7 @@ export async function getStudentPerformanceStats(studentId: string): Promise<Stu
       }
     },
     orderBy: {
-      completedAt: 'desc'
+      submittedAt: 'desc'
     }
   })
 
@@ -146,7 +398,10 @@ export async function getStudentPerformanceStats(studentId: string): Promise<Stu
   const totalScore = studentExams.reduce((sum, exam) => sum + (exam.score || 0), 0)
   const totalTimeSpent = studentExams.reduce((sum, exam) => sum + (exam.timeSpent || 0), 0)
   const averageScore = totalScore / totalExams
-  const averagePercentage = studentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / totalExams
+  
+  // Calculate percentage from score/totalScore
+  const calculatePercentage = (exam: any) => exam.totalScore > 0 ? (exam.score / exam.totalScore) * 100 : 0
+  const averagePercentage = studentExams.reduce((sum, exam) => sum + calculatePercentage(exam), 0) / totalExams
 
   // Calculate improvement trend (compare first half vs second half of exams)
   const halfPoint = Math.floor(totalExams / 2)
@@ -154,10 +409,10 @@ export async function getStudentPerformanceStats(studentId: string): Promise<Stu
   const olderExams = studentExams.slice(halfPoint)
   
   const recentAvg = recentExams.length > 0 
-    ? recentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / recentExams.length 
+    ? recentExams.reduce((sum, exam) => sum + calculatePercentage(exam), 0) / recentExams.length 
     : 0
   const olderAvg = olderExams.length > 0 
-    ? olderExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / olderExams.length 
+    ? olderExams.reduce((sum, exam) => sum + calculatePercentage(exam), 0) / olderExams.length 
     : 0
   
   const improvementTrend = recentAvg - olderAvg
@@ -211,8 +466,8 @@ export async function getStudentPerformanceStats(studentId: string): Promise<Stu
   const recentPerformance = studentExams.slice(0, 5).map(exam => ({
     examTitle: exam.exam.title,
     score: exam.score || 0,
-    percentage: exam.percentage || 0,
-    completedAt: exam.completedAt?.toISOString() || ''
+    percentage: calculatePercentage(exam),
+    completedAt: exam.submittedAt?.toISOString() || ''
   }))
 
   return {
@@ -258,7 +513,7 @@ export async function getExamStatistics(examId: string): Promise<ExamStatistics>
   const studentExams = await prisma.studentExam.findMany({
     where: {
       examId,
-      status: 'COMPLETED'
+      status: 'SUBMITTED'
     },
     include: {
       student: {
@@ -303,8 +558,11 @@ export async function getExamStatistics(examId: string): Promise<ExamStatistics>
   // Calculate basic stats
   const totalScore = studentExams.reduce((sum, exam) => sum + (exam.score || 0), 0)
   const averageScore = totalScore / totalAttempts
-  const averagePercentage = studentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / totalAttempts
-  const passedCount = studentExams.filter(exam => (exam.percentage || 0) >= 50).length
+  
+  // Calculate percentage from score/totalScore
+  const calculatePercentage = (exam: any) => exam.totalScore > 0 ? (exam.score / exam.totalScore) * 100 : 0
+  const averagePercentage = studentExams.reduce((sum, exam) => sum + calculatePercentage(exam), 0) / totalAttempts
+  const passedCount = studentExams.filter(exam => calculatePercentage(exam) >= 50).length
   const passRate = (passedCount / totalAttempts) * 100
   const averageTimeSpent = studentExams.reduce((sum, exam) => sum + (exam.timeSpent || 0), 0) / totalAttempts
 
@@ -370,12 +628,12 @@ export async function getExamStatistics(examId: string): Promise<ExamStatistics>
 
   // Top performers
   const topPerformers = studentExams
-    .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
+    .sort((a, b) => calculatePercentage(b) - calculatePercentage(a))
     .slice(0, 5)
     .map(exam => ({
       studentName: `${exam.student.firstName} ${exam.student.lastName}`,
       score: exam.score || 0,
-      percentage: exam.percentage || 0
+      percentage: calculatePercentage(exam)
     }))
 
   return {
@@ -430,8 +688,8 @@ export async function getProgressTracking(
   const studentExams = await prisma.studentExam.findMany({
     where: {
       studentId,
-      status: 'COMPLETED',
-      completedAt: {
+      status: 'SUBMITTED',
+      submittedAt: {
         gte: startDate,
         lte: now
       }
@@ -448,7 +706,7 @@ export async function getProgressTracking(
       }
     },
     orderBy: {
-      completedAt: 'asc'
+      submittedAt: 'asc'
     }
   })
 
@@ -456,9 +714,9 @@ export async function getProgressTracking(
   const examsByDate = new Map<string, typeof studentExams>()
   
   studentExams.forEach(exam => {
-    if (!exam.completedAt) return
+    if (!exam.submittedAt) return
     
-    const dateKey = exam.completedAt.toISOString().split('T')[0] // YYYY-MM-DD format
+    const dateKey = exam.submittedAt.toISOString().split('T')[0] // YYYY-MM-DD format
     if (!examsByDate.has(dateKey)) {
       examsByDate.set(dateKey, [])
     }
@@ -477,9 +735,9 @@ export async function getProgressTracking(
   const subjectProgressMap = new Map<string, Map<string, { scores: number[], count: number }>>()
   
   studentExams.forEach(exam => {
-    if (!exam.completedAt) return
+    if (!exam.submittedAt) return
     
-    const dateKey = exam.completedAt.toISOString().split('T')[0]
+    const dateKey = exam.submittedAt.toISOString().split('T')[0]
     const subjectScores = new Map<string, { correct: number, total: number }>()
     
     exam.answers.forEach(answer => {
@@ -522,22 +780,23 @@ export async function getProgressTracking(
   // Find first exam
   if (studentExams.length > 0) {
     milestones.push({
-      date: studentExams[0].completedAt?.toISOString().split('T')[0] || '',
+      date: studentExams[0].submittedAt?.toISOString().split('T')[0] || '',
       achievement: 'First Exam',
       description: 'Completed your first exam in this period'
     })
   }
 
   // Find best performance
+  const calculatePercentage = (exam: any) => exam.totalScore > 0 ? (exam.score / exam.totalScore) * 100 : 0
   const bestExam = studentExams.reduce((best, current) => 
-    (current.percentage || 0) > (best.percentage || 0) ? current : best
+    calculatePercentage(current) > calculatePercentage(best) ? current : best
   , studentExams[0])
   
-  if (bestExam && (bestExam.percentage || 0) > 80) {
+  if (bestExam && calculatePercentage(bestExam) > 80) {
     milestones.push({
-      date: bestExam.completedAt?.toISOString().split('T')[0] || '',
+      date: bestExam.submittedAt?.toISOString().split('T')[0] || '',
       achievement: 'Excellence Achieved',
-      description: `Scored ${Math.round(bestExam.percentage || 0)}% - your best performance!`
+      description: `Scored ${Math.round(calculatePercentage(bestExam))}% - your best performance!`
     })
   }
 

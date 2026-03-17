@@ -15,19 +15,21 @@ import { logger } from '../utils/logger'
 // Requires admin authentication
 export const testEmailConfiguration = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin role required.' }
     })
+    return
   }
 
   const { testEmail } = req.body
   
   if (!testEmail) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Test email address is required' }
     })
+    return
   }
 
   const success = await emailService.testEmailConfiguration(testEmail)
@@ -53,19 +55,21 @@ export const testEmailConfiguration = asyncHandler(async (req: Request, res: Res
 // Requires admin authentication
 export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user || !['ADMIN', 'TEACHER'].includes(req.user.role)) {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin or teacher role required.' }
     })
+    return
   }
 
   const { userEmail, userData } = req.body
   
   if (!userEmail || !userData) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'User email and data are required' }
     })
+    return
   }
 
   const success = await emailService.sendWelcomeEmail(userEmail, userData)
@@ -90,26 +94,29 @@ export const sendWelcomeEmail = asyncHandler(async (req: Request, res: Response)
 // Requires admin authentication
 export const sendBulkEmails = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin role required.' }
     })
+    return
   }
 
   const { emails } = req.body
   
   if (!emails || !Array.isArray(emails) || emails.length === 0) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Emails array is required and must not be empty' }
     })
+    return
   }
 
   if (emails.length > 100) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Cannot send more than 100 emails at once' }
     })
+    return
   }
 
   const results = await emailService.sendBulkEmails(emails)
@@ -130,19 +137,21 @@ export const sendBulkEmails = asyncHandler(async (req: Request, res: Response) =
 // Requires admin authentication
 export const sendCustomEmail = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user || !['ADMIN', 'TEACHER'].includes(req.user.role)) {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin or teacher role required.' }
     })
+    return
   }
 
   const { to, subject, html, text } = req.body
   
   if (!to || !subject || (!html && !text)) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Recipient, subject, and content (html or text) are required' }
     })
+    return
   }
 
   const success = await emailService.sendEmail({

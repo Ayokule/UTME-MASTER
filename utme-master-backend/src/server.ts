@@ -51,7 +51,6 @@ import { errorHandler } from './middleware/error.middleware'
 // Security middleware
 import { 
   generalRateLimit, 
-  speedLimiter, 
   securityHeaders,
   inputSanitization,
   sqlInjectionProtection
@@ -176,9 +175,6 @@ if (process.env.NODE_ENV === 'development') {
 
 // Apply general rate limiting to all routes
 app.use(generalRateLimit)
-
-// Apply speed limiting (progressive delays)
-app.use(speedLimiter)
 
 // ==========================================
 // INPUT SECURITY

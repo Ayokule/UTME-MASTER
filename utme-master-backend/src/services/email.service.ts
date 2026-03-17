@@ -21,7 +21,7 @@ export interface EmailTemplate {
 
 export interface EmailOptions {
   to: string | string[]
-  subject: string
+  subject?: string
   html?: string
   text?: string
   template?: string
@@ -68,7 +68,7 @@ async function createTransporter(): Promise<nodemailer.Transporter> {
       }
     }
 
-    const newTransporter = nodemailer.createTransporter(config)
+    const newTransporter = nodemailer.createTransport(config)
     
     // Verify connection
     await newTransporter.verify()
@@ -448,7 +448,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
         throwBadRequest(`Email template '${options.template}' not found`)
       }
       
-      const templateContent = template(options.templateData)
+      const templateContent = template(options.templateData as any)
       emailContent = {
         subject: templateContent.subject,
         html: templateContent.html,
@@ -456,6 +456,9 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       }
     } else {
       // Use provided content
+      if (!options.subject) {
+        throwBadRequest('Subject is required when not using a template')
+      }
       emailContent = {
         subject: options.subject,
         html: options.html,

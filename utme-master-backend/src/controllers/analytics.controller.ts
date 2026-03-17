@@ -1,5 +1,5 @@
 // ==========================================
-// ANALYTICS CONTROLLER - Phase 4
+// ANALYTICS CONTROLLER - FIXED VERSION
 // ==========================================
 // HTTP handlers for analytics endpoints
 
@@ -15,7 +15,8 @@ import { ensureAuthenticated } from '../utils/errorStandardization'
 // ==========================================
 // GET /api/analytics/student/dashboard
 export const getStudentDashboard = asyncHandler(async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id
+  ensureAuthenticated(req.user)
+  const studentId = req.user!.id
   
   const stats = await analyticsService.getStudentDashboardStats(studentId)
   
@@ -30,7 +31,8 @@ export const getStudentDashboard = asyncHandler(async (req: Request, res: Respon
 // ==========================================
 // GET /api/analytics/student/subjects/:subjectId
 export const getSubjectAnalysis = asyncHandler(async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id
+  ensureAuthenticated(req.user)
+  const studentId = req.user!.id
   const { subjectId } = req.params
   
   const analysis = await analyticsService.getSubjectAnalysis(studentId, subjectId)
@@ -46,7 +48,8 @@ export const getSubjectAnalysis = asyncHandler(async (req: Request, res: Respons
 // ==========================================
 // GET /api/analytics/student/comparison
 export const getPerformanceComparison = asyncHandler(async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id
+  ensureAuthenticated(req.user)
+  const studentId = req.user!.id
   
   const comparison = await analyticsService.getPerformanceComparison(studentId)
   
@@ -61,7 +64,8 @@ export const getPerformanceComparison = asyncHandler(async (req: Request, res: R
 // ==========================================
 // GET /api/analytics/student/progress
 export const getProgressOverTime = asyncHandler(async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id
+  ensureAuthenticated(req.user)
+  const studentId = req.user!.id
   const days = parseInt(req.query.days as string) || 30
   
   const progress = await analyticsService.getProgressOverTime(studentId, days)
@@ -86,10 +90,6 @@ export const getAdminDashboard = asyncHandler(async (req: Request, res: Response
 })
 
 // ==========================================
-// NEW ANALYTICS ENDPOINTS
-// ==========================================
-
-// ==========================================
 // GET STUDENT PERFORMANCE STATS
 // ==========================================
 // GET /api/analytics/student/:studentId/performance
@@ -101,11 +101,12 @@ export const getStudentPerformanceStats = asyncHandler(async (req: Request, res:
   ensureAuthenticated(req.user)
   
   // Students can only view their own stats, admins/teachers can view any
-  if (req.user.role === 'STUDENT' && req.user.id !== studentId) {
-    return res.status(403).json({
+  if (req.user!.role === 'STUDENT' && req.user!.id !== studentId) {
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied' }
     })
+    return
   }
   
   const stats = await analyticsService.getStudentPerformanceStats(studentId)
@@ -124,11 +125,14 @@ export const getStudentPerformanceStats = asyncHandler(async (req: Request, res:
 export const getExamStatistics = asyncHandler(async (req: Request, res: Response) => {
   const { examId } = req.params
   
-  if (!req.user || !['ADMIN', 'TEACHER'].includes(req.user.role)) {
-    return res.status(403).json({
+  ensureAuthenticated(req.user)
+  
+  if (!['ADMIN', 'TEACHER'].includes(req.user!.role)) {
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin or teacher role required.' }
     })
+    return
   }
   
   const statistics = await analyticsService.getExamStatistics(examId)
@@ -153,20 +157,22 @@ export const getProgressTracking = asyncHandler(async (req: Request, res: Respon
   ensureAuthenticated(req.user)
   
   // Students can only view their own progress, admins/teachers can view any
-  if (req.user.role === 'STUDENT' && req.user.id !== studentId) {
-    return res.status(403).json({
+  if (req.user!.role === 'STUDENT' && req.user!.id !== studentId) {
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied' }
     })
+    return
   }
   
   // Validate timeRange
   const validRanges = ['week', 'month', 'quarter', 'year']
   if (!validRanges.includes(timeRange as string)) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { message: 'Invalid time range. Must be one of: week, month, quarter, year' }
     })
+    return
   }
   
   const progress = await analyticsService.getProgressTracking(
@@ -186,11 +192,14 @@ export const getProgressTracking = asyncHandler(async (req: Request, res: Respon
 // GET /api/analytics/dashboard
 // Requires admin authentication
 export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({
+  ensureAuthenticated(req.user)
+  
+  if (req.user!.role !== 'ADMIN') {
+    res.status(403).json({
       success: false,
       error: { message: 'Access denied. Admin role required.' }
     })
+    return
   }
   
   // Get overall system statistics
@@ -224,8 +233,8 @@ export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Resp
     // Recent exam completions
     prisma.studentExam.findMany({
       where: {
-        status: 'COMPLETED',
-        completedAt: {
+        status: 'SUBMITTED',
+        submittedAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
         }
       },
@@ -243,7 +252,7 @@ export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Resp
         }
       },
       orderBy: {
-        completedAt: 'desc'
+        submittedAt: 'desc'
       },
       take: 10
     })
@@ -252,17 +261,21 @@ export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Resp
   // Calculate average performance
   const completedExams = await prisma.studentExam.findMany({
     where: {
-      status: 'COMPLETED',
-      percentage: { not: null }
+      status: 'SUBMITTED',
+      score: { gt: 0 }
     },
     select: {
-      percentage: true,
-      completedAt: true
+      score: true,
+      totalScore: true,
+      submittedAt: true
     }
   })
   
   const averagePerformance = completedExams.length > 0
-    ? completedExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / completedExams.length
+    ? completedExams.reduce((sum, exam) => {
+        const percentage = exam.totalScore > 0 ? (exam.score / exam.totalScore) * 100 : 0
+        return sum + percentage
+      }, 0) / completedExams.length
     : 0
   
   // Performance trend (last 30 days vs previous 30 days)
@@ -271,24 +284,24 @@ export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Resp
   
   const recentPerformance = await prisma.studentExam.aggregate({
     where: {
-      status: 'COMPLETED',
-      completedAt: { gte: thirtyDaysAgo }
+      status: 'SUBMITTED',
+      submittedAt: { gte: thirtyDaysAgo }
     },
-    _avg: { percentage: true }
+    _avg: { score: true }
   })
   
   const previousPerformance = await prisma.studentExam.aggregate({
     where: {
-      status: 'COMPLETED',
-      completedAt: { 
+      status: 'SUBMITTED',
+      submittedAt: { 
         gte: sixtyDaysAgo,
         lt: thirtyDaysAgo
       }
     },
-    _avg: { percentage: true }
+    _avg: { score: true }
   })
   
-  const performanceTrend = (recentPerformance._avg.percentage || 0) - (previousPerformance._avg.percentage || 0)
+  const performanceTrend = (recentPerformance._avg?.score || 0) - (previousPerformance._avg?.score || 0)
   
   const analytics = {
     overview: {
@@ -303,8 +316,8 @@ export const getDashboardAnalytics = asyncHandler(async (req: Request, res: Resp
       studentName: `${activity.student.firstName} ${activity.student.lastName}`,
       examTitle: activity.exam.title,
       score: activity.score,
-      percentage: activity.percentage,
-      completedAt: activity.completedAt
+      percentage: activity.totalScore > 0 ? Math.round((activity.score / activity.totalScore) * 100) : 0,
+      completedAt: activity.submittedAt
     }))
   }
   
