@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Save, ArrowLeft, Plus, Trash2, Upload, Pause } from 'lucide-react'
+import { Save, ArrowLeft, Plus, Trash2, Upload } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 
 // ==========================================

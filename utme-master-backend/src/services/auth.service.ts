@@ -9,6 +9,8 @@ import { ConflictError, UnauthorizedError, NotFoundError } from '../utils/errors
 import { logger } from '../utils/logger'
 import type { RegisterInput, LoginInput } from '../validation/auth.validation'
 import { randomUUID } from 'crypto'
+import * as emailService from './email.service'
+import { throwServiceError } from '../utils/errorStandardization'
 
 // ==========================================
 // REGISTER NEW USER
@@ -62,6 +64,17 @@ export async function registerUser(data: RegisterInput) {
   })
   
   logger.info(`New user registered: ${user.email}`)
+  
+  // Send welcome email
+  try {
+    await emailService.sendWelcomeEmail(user.email, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role
+    })
+  } catch (error) {
+    logger.warn(`Failed to send welcome email to ${user.email}:`, error)
+  }
   
   // Generate tokens
   const accessToken = generateAccessToken({
@@ -299,4 +312,80 @@ export async function changePassword(
   logger.info(`Password changed for user: ${user.email}`)
   
   return { message: 'Password changed successfully' }
+}
+
+// ==========================================
+// REQUEST PASSWORD RESET
+// ==========================================
+export async function requestPasswordReset(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email }
+  })
+  
+  if (!user) {
+    // Don't reveal if email exists or not for security
+    return { message: 'If the email exists, a reset link has been sent' }
+  }
+  
+  // Generate reset token (expires in 1 hour)
+  const resetToken = randomUUID()
+  const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+  
+  // Save reset token to database
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetToken,
+      resetTokenExpires
+    }
+  })
+  
+  // Send password reset email
+  try {
+    await emailService.sendPasswordResetEmail(user.email, {
+      firstName: user.firstName,
+      resetToken
+    })
+    logger.info(`Password reset email sent to: ${user.email}`)
+  } catch (error) {
+    logger.error(`Failed to send password reset email to ${user.email}:`, error)
+    throwServiceError('Failed to send password reset email')
+  }
+  
+  return { message: 'If the email exists, a reset link has been sent' }
+}
+
+// ==========================================
+// RESET PASSWORD WITH TOKEN
+// ==========================================
+export async function resetPassword(token: string, newPassword: string) {
+  const user = await prisma.user.findFirst({
+    where: {
+      resetToken: token,
+      resetTokenExpires: {
+        gt: new Date() // Token not expired
+      }
+    }
+  })
+  
+  if (!user) {
+    throw new UnauthorizedError('Invalid or expired reset token')
+  }
+  
+  // Hash new password
+  const newPasswordHash = await bcrypt.hash(newPassword, 10)
+  
+  // Update password and clear reset token
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: newPasswordHash,
+      resetToken: null,
+      resetTokenExpires: null
+    }
+  })
+  
+  logger.info(`Password reset completed for user: ${user.email}`)
+  
+  return { message: 'Password reset successfully' }
 }

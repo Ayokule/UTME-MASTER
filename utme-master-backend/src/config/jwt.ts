@@ -21,6 +21,8 @@ import jwt from 'jsonwebtoken'
 
 // Import our logger
 import { logger } from '../utils/logger'
+import { throwServiceError } from '../utils/errorStandardization'
+import { UnauthorizedError, BadRequestError } from '../utils/errors'
 
 // ==========================================
 // JWT CONFIGURATION
@@ -87,7 +89,7 @@ export function generateAccessToken(payload: JWTPayload): string {
     return token
   } catch (error) {
     logger.error('Error generating access token:', error)
-    throw new Error('Failed to generate access token')
+    throwServiceError('Failed to generate access token')
   }
 }
 
@@ -119,7 +121,7 @@ export function generateRefreshToken(payload: JWTPayload): string {
     return token
   } catch (error) {
     logger.error('Error generating refresh token:', error)
-    throw new Error('Failed to generate refresh token')
+    throwServiceError('Failed to generate refresh token')
   }
 }
 
@@ -159,13 +161,13 @@ export function verifyAccessToken(token: string): JWTPayload {
     // Handle different error types
     if (error instanceof jwt.TokenExpiredError) {
       logger.warn('Token expired')
-      throw new Error('Token has expired')
+      throw new UnauthorizedError('Token has expired')
     } else if (error instanceof jwt.JsonWebTokenError) {
       logger.warn('Invalid token')
-      throw new Error('Invalid token')
+      throw new UnauthorizedError('Invalid token')
     } else {
       logger.error('Error verifying token:', error)
-      throw new Error('Token verification failed')
+      throw new UnauthorizedError('Token verification failed')
     }
   }
 }
@@ -188,7 +190,7 @@ export function verifyRefreshToken(token: string): { userId: string } {
     
     // Check if it's a refresh token
     if (decoded.type !== 'refresh') {
-      throw new Error('Not a refresh token')
+      throw new BadRequestError('Not a refresh token')
     }
     
     return {
@@ -197,13 +199,13 @@ export function verifyRefreshToken(token: string): { userId: string } {
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       logger.warn('Refresh token expired')
-      throw new Error('Refresh token has expired')
+      throw new UnauthorizedError('Refresh token has expired')
     } else if (error instanceof jwt.JsonWebTokenError) {
       logger.warn('Invalid refresh token')
-      throw new Error('Invalid refresh token')
+      throw new UnauthorizedError('Invalid refresh token')
     } else {
       logger.error('Error verifying refresh token:', error)
-      throw new Error('Refresh token verification failed')
+      throw new UnauthorizedError('Refresh token verification failed')
     }
   }
 }

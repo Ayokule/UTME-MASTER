@@ -14,14 +14,6 @@ interface EmptyStateProps {
   variant?: 'default' | 'error' | 'success' | 'warning'
 }
 
-const iconMap = {
-  questions: BookOpen,
-  users: Users,
-  documents: FileText,
-  analytics: BarChart3,
-  error: AlertCircle
-}
-
 export default function EmptyState({ 
   icon, 
   title, 
@@ -151,16 +143,4 @@ export function ErrorState({ onRetry }: { onRetry: () => void }) {
       variant="error"
     />
   )
-}
-
-interface EmptyStateProps {
-  icon?: ReactNode | keyof typeof iconMap  // Allow string keys
-  title: string
-  description: string
-  action?: {
-    label: string
-    onClick: () => void
-    variant?: 'primary' | 'secondary'
-  }
-  variant?: 'default' | 'error' | 'success' | 'warning'
 }

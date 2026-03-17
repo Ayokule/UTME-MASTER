@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Plus,
   BarChart3,
-  Settings,
   Upload,
   Eye,
   Sparkles,
@@ -30,6 +29,8 @@ import { useAuthStore } from '../../store/auth'
 import { showToast } from '../../components/ui/Toast'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
+import SafePageWrapper from '../../components/SafePageWrapper'
+import BlankPageDetector from '../../components/BlankPageDetector'
 
 // Animation variants
 const containerVariants = {
@@ -99,12 +100,26 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(null)
       
+      console.log('🔄 [ADMIN DASHBOARD] Loading admin dashboard from /analytics/admin/dashboard...')
       const data = await getAdminDashboard()
+      console.log('✅ [ADMIN DASHBOARD] Admin dashboard loaded successfully:', {
+        totalStudents: data.stats?.totalStudents,
+        totalQuestions: data.stats?.totalQuestions,
+        totalExams: data.stats?.totalExams,
+        recentActivity: data.recentActivity?.length
+      })
       setDashboardData(data)
     } catch (err: any) {
-      console.error('Admin dashboard error:', err)
+      console.error('❌ [ADMIN DASHBOARD] API Error Details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        endpoint: '/analytics/admin/dashboard',
+        errorData: err.response?.data,
+        fullError: err
+      })
       setError(err.message || 'Failed to load dashboard data')
-      showToast.error('Failed to load dashboard data')
+      showToast.error('⚠️ Admin Dashboard API failed - showing sample data')
       
       // Fallback to mock data if API fails
       const mockData: AdminDashboardData = {
@@ -168,6 +183,7 @@ export default function AdminDashboard() {
       }
       
       setDashboardData(mockData)
+      console.log('⚠️ [ADMIN DASHBOARD] Using fallback/mock data - API failed')
     } finally {
       setLoading(false)
     }
@@ -184,7 +200,7 @@ export default function AdminDashboard() {
     return `${Math.floor(diffInMinutes / 1440)}d ago`
   }
 
-  const getActivityIcon = (type: string, icon: string) => {
+  const getActivityIcon = (type: string) => {
     if (type === 'exam_completed') return <Target className="w-4 h-4" />
     if (type === 'user_registered') return <UserCheck className="w-4 h-4" />
     return <Activity className="w-4 h-4" />
@@ -214,7 +230,7 @@ export default function AdminDashboard() {
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+          className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
         >
           {/* Animated Loading Header */}
           <motion.div
@@ -303,16 +319,41 @@ export default function AdminDashboard() {
     )
   }
 
-  const { stats, recentActivity, subjectDistribution, examStatusStats, systemHealth } = dashboardData
+  const { stats, recentActivity, subjectDistribution, systemHealth } = dashboardData || {}
+  
+  // Provide defaults if data is missing
+  const safeSystemHealth = systemHealth || {
+    database: 'healthy',
+    api: 'healthy',
+    storage: 'healthy',
+    uptime: '99.9%'
+  }
+  
+  const safeStats = stats || {
+    totalStudents: 0,
+    totalTeachers: 0,
+    totalQuestions: 0,
+    totalExams: 0,
+    activeUsers: 0,
+    totalSubjects: 0
+  }
+  
+  const safeRecentActivity = recentActivity || []
+  const safeSubjectDistribution = subjectDistribution || []
 
   return (
-    <Layout>
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-      >
+    <SafePageWrapper pageName="Admin Dashboard">
+      <Layout>
+        <BlankPageDetector 
+          pageName="Admin Dashboard" 
+          hasContent={!!dashboardData && Object.keys(dashboardData).length > 0}
+        />
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        >
         {/* Header */}
         <motion.div
           variants={headerVariants}
@@ -375,7 +416,7 @@ export default function AdminDashboard() {
                     >
                       <Sparkles className="w-5 h-5" />
                     </motion.div>
-                    <span className="text-sm">Uptime: {systemHealth.uptime}</span>
+                    <span className="text-sm">Uptime: {safeSystemHealth.uptime}</span>
                   </motion.div>
                 </motion.div>
               </motion.div>
@@ -438,7 +479,7 @@ export default function AdminDashboard() {
                   <GraduationCap className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-blue-900">{stats.totalStudents.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-900">{safeStats.totalStudents.toLocaleString()}</p>
                   <p className="text-sm font-medium text-blue-700">Students</p>
                 </div>
               </div>
@@ -452,7 +493,7 @@ export default function AdminDashboard() {
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-purple-900">{stats.totalTeachers}</p>
+                  <p className="text-2xl font-bold text-purple-900">{safeStats.totalTeachers}</p>
                   <p className="text-sm font-medium text-purple-700">Teachers</p>
                 </div>
               </div>
@@ -466,7 +507,7 @@ export default function AdminDashboard() {
                   <BookOpen className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-green-900">{stats.totalQuestions.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-900">{safeStats.totalQuestions.toLocaleString()}</p>
                   <p className="text-sm font-medium text-green-700">Questions</p>
                 </div>
               </div>
@@ -480,7 +521,7 @@ export default function AdminDashboard() {
                   <FileText className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-yellow-900">{stats.totalExams}</p>
+                  <p className="text-2xl font-bold text-yellow-900">{safeStats.totalExams}</p>
                   <p className="text-sm font-medium text-yellow-700">Exams</p>
                 </div>
               </div>
@@ -494,7 +535,7 @@ export default function AdminDashboard() {
                   <Activity className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-indigo-900">{stats.activeUsers}</p>
+                  <p className="text-2xl font-bold text-indigo-900">{safeStats.activeUsers}</p>
                   <p className="text-sm font-medium text-indigo-700">Active Users</p>
                 </div>
               </div>
@@ -508,7 +549,7 @@ export default function AdminDashboard() {
                   <BookOpen className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-pink-900">{stats.totalSubjects}</p>
+                  <p className="text-2xl font-bold text-pink-900">{safeStats.totalSubjects}</p>
                   <p className="text-sm font-medium text-pink-700">Subjects</p>
                 </div>
               </div>
@@ -521,6 +562,22 @@ export default function AdminDashboard() {
           variants={containerVariants}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
+          <motion.div variants={cardVariants} whileHover="hover">
+            <Link to="/admin/exams">
+              <Card className="p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-cyan-500 rounded-2xl shadow-lg">
+                    <BookOpen className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-cyan-900">Manage Exams</h3>
+                    <p className="text-sm text-cyan-700">View all exams</p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          </motion.div>
+
           <motion.div variants={cardVariants} whileHover="hover">
             <Link to="/admin/questions/create">
               <Card className="p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:shadow-xl transition-all duration-300 cursor-pointer">
@@ -596,13 +653,13 @@ export default function AdminDashboard() {
                   <Clock className="w-5 h-5 text-primary-600" />
                   Recent Activity
                 </h3>
-                <span className="text-sm text-gray-500">{recentActivity.length} activities</span>
+                <span className="text-sm text-gray-500">{safeRecentActivity.length} activities</span>
               </div>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 <AnimatePresence>
-                  {recentActivity.map((activity, index) => (
+                  {safeRecentActivity.map((activity, index) => (
                     <motion.div
-                      key={activity.id}
+                      key={activity.id || `activity-${index}`}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
@@ -614,7 +671,7 @@ export default function AdminDashboard() {
                           ? 'bg-green-100 text-green-600' 
                           : 'bg-blue-100 text-blue-600'
                       }`}>
-                        {getActivityIcon(activity.type, activity.icon)}
+                        {getActivityIcon(activity.type)}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">{activity.description}</p>
@@ -645,9 +702,9 @@ export default function AdminDashboard() {
                     <Database className="w-4 h-4 text-gray-600" />
                     <span className="text-sm font-medium">Database</span>
                   </div>
-                  <div className={`flex items-center space-x-2 ${getHealthColor(systemHealth.database)}`}>
-                    {getHealthIcon(systemHealth.database)}
-                    <span className="text-sm font-medium capitalize">{systemHealth.database}</span>
+                  <div className={`flex items-center space-x-2 ${getHealthColor(safeSystemHealth.database)}`}>
+                    {getHealthIcon(safeSystemHealth.database)}
+                    <span className="text-sm font-medium capitalize">{safeSystemHealth.database}</span>
                   </div>
                 </div>
                 
@@ -656,9 +713,9 @@ export default function AdminDashboard() {
                     <Zap className="w-4 h-4 text-gray-600" />
                     <span className="text-sm font-medium">API</span>
                   </div>
-                  <div className={`flex items-center space-x-2 ${getHealthColor(systemHealth.api)}`}>
-                    {getHealthIcon(systemHealth.api)}
-                    <span className="text-sm font-medium capitalize">{systemHealth.api}</span>
+                  <div className={`flex items-center space-x-2 ${getHealthColor(safeSystemHealth.api)}`}>
+                    {getHealthIcon(safeSystemHealth.api)}
+                    <span className="text-sm font-medium capitalize">{safeSystemHealth.api}</span>
                   </div>
                 </div>
                 
@@ -667,9 +724,9 @@ export default function AdminDashboard() {
                     <HardDrive className="w-4 h-4 text-gray-600" />
                     <span className="text-sm font-medium">Storage</span>
                   </div>
-                  <div className={`flex items-center space-x-2 ${getHealthColor(systemHealth.storage)}`}>
-                    {getHealthIcon(systemHealth.storage)}
-                    <span className="text-sm font-medium capitalize">{systemHealth.storage}</span>
+                  <div className={`flex items-center space-x-2 ${getHealthColor(safeSystemHealth.storage)}`}>
+                    {getHealthIcon(safeSystemHealth.storage)}
+                    <span className="text-sm font-medium capitalize">{safeSystemHealth.storage}</span>
                   </div>
                 </div>
 
@@ -698,12 +755,12 @@ export default function AdminDashboard() {
                 <TrendingUp className="w-5 h-5 text-primary-600" />
                 Subject Distribution
               </h3>
-              <span className="text-sm text-gray-500">{subjectDistribution.length} subjects</span>
+              <span className="text-sm text-gray-500">{safeSubjectDistribution.length} subjects</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {subjectDistribution.map((subject, index) => (
+              {safeSubjectDistribution.map((subject, index) => (
                 <motion.div
-                  key={subject.code}
+                  key={subject.code || `subject-${index}`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.1 }}
@@ -720,7 +777,8 @@ export default function AdminDashboard() {
             </div>
           </Card>
         </motion.div>
-      </motion.div>
-    </Layout>
+        </motion.div>
+      </Layout>
+    </SafePageWrapper>
   )
 }

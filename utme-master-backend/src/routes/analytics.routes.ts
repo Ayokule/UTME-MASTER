@@ -50,6 +50,44 @@ router.get(
 )
 
 // ==========================================
+// NEW ANALYTICS ROUTES
+// ==========================================
+
+// GET STUDENT PERFORMANCE STATS
+// GET /api/analytics/student/:studentId/performance
+router.get(
+  '/student/:studentId/performance',
+  authenticate,
+  analyticsController.getStudentPerformanceStats
+)
+
+// GET PROGRESS TRACKING
+// GET /api/analytics/student/:studentId/progress-tracking
+router.get(
+  '/student/:studentId/progress-tracking',
+  authenticate,
+  analyticsController.getProgressTracking
+)
+
+// GET EXAM STATISTICS
+// GET /api/analytics/exam/:examId/statistics
+router.get(
+  '/exam/:examId/statistics',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  analyticsController.getExamStatistics
+)
+
+// GET DASHBOARD ANALYTICS
+// GET /api/analytics/dashboard
+router.get(
+  '/dashboard',
+  authenticate,
+  authorizeRole(['ADMIN']),
+  analyticsController.getDashboardAnalytics
+)
+
+// ==========================================
 // ADMIN ROUTES
 // ==========================================
 
@@ -69,10 +107,16 @@ export default router
 // ==========================================
 //
 // Student Analytics:
-// GET    /api/analytics/student/dashboard              - Student dashboard stats
-// GET    /api/analytics/student/subjects/:subjectId    - Subject analysis
-// GET    /api/analytics/student/comparison             - Performance comparison
-// GET    /api/analytics/student/progress               - Progress over time
+// GET    /api/analytics/student/dashboard                    - Student dashboard stats
+// GET    /api/analytics/student/subjects/:subjectId          - Subject analysis
+// GET    /api/analytics/student/comparison                   - Performance comparison
+// GET    /api/analytics/student/progress                     - Progress over time
+// GET    /api/analytics/student/:studentId/performance       - Student performance aggregation
+// GET    /api/analytics/student/:studentId/progress-tracking - Progress tracking over time
+//
+// Exam Analytics:
+// GET    /api/analytics/exam/:examId/statistics              - Exam statistics calculation
 //
 // Admin Analytics:
-// GET    /api/analytics/admin/dashboard                - Admin dashboard stats
+// GET    /api/analytics/admin/dashboard                      - Admin dashboard stats
+// GET    /api/analytics/dashboard                            - Enhanced dashboard analytics

@@ -1,3 +1,22 @@
+// ==========================================
+// UTME MASTER - UNIFIED DATABASE SCHEMA
+// ==========================================
+// Production-ready Prisma schema for UTME Master
+// LAN-based exam prep system for Nigerian schools
+//
+// This unified schema consolidates:
+// - Main schema.prisma (User, Exam, Question models)
+// - schema-exam.prisma (StudentExam, StudentAnswer models)
+// - schema-license.prisma (License, LicenseActivation models)
+//
+// Key Features:
+// ✅ Consistent ID generation (CUID for all models)
+// ✅ Explicit relationship names (no conflicts)
+// ✅ Proper cascade delete behavior
+// ✅ Performance indexes on frequently queried fields
+// ✅ Nigerian context (JAMB/WAEC subjects)
+// ✅ Type-safe JSON fields with documentation
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,265 +26,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model ExamQuestion {
-  id           String   @id @default(cuid())
-  examId       String
-  questionId   String
-  orderNumber  Int
-  points       Int      @default(1)
-  questionData Json
-  createdAt    DateTime @default(now())
-  
-  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id])
-
-  @@unique([examId, questionId])
-  @@index([examId])
-  @@index([questionId])
-  @@map("exam_questions")
-}
-
-model Exam {
-  id                   String    @id @default(cuid())
-  title                String
-  description          String?
-  duration             Int
-  totalMarks           Int
-  passMarks            Int
-  totalQuestions       Int
-  subjectIds           Json
-  questionsPerSubject  Json?
-  randomizeQuestions   Boolean   @default(false)
-  randomizeOptions     Boolean   @default(false)
-  showResults          Boolean   @default(true)
-  allowReview          Boolean   @default(true)
-  allowRetake          Boolean   @default(false)
-  difficulties         Json?
-  yearFrom             Int?
-  yearTo               Int?
-  isActive             Boolean   @default(true)
-  isPublished          Boolean   @default(false)
-  startsAt             DateTime?
-  endsAt               DateTime?
-  createdBy            String
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  
-  examQuestions ExamQuestion[]
-  creator       User           @relation(fields: [createdBy], references: [id])
-  studentExams  StudentExam[]
-
-  @@index([createdBy])
-  @@index([isPublished, isActive])
-  @@map("exams")
-}
-
-model LicenseActivation {
-  id                  String   @id @default(cuid())
-  licenseId           String
-  hardwareFingerprint String
-  cpuId               String
-  motherboardSerial   String
-  macAddress          String
-  computerName        String?
-  osVersion           String?
-  ipAddress           String?
-  success             Boolean  @default(true)
-  errorMessage        String?
-  action              String
-  createdAt           DateTime @default(now())
-  
-  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
-
-  @@index([hardwareFingerprint])
-  @@index([licenseId])
-  @@map("license_activations")
-}
-
-model License {
-  id                  String            @id @default(cuid())
-  licenseKey          String            @unique
-  tier                LicenseTier       @default(TRIAL)
-  status              LicenseStatus     @default(ACTIVE)
-  organizationName    String?
-  contactEmail        String?
-  contactPhone        String?
-  hardwareFingerprint String?           @unique
-  isActivated         Boolean           @default(false)
-  activatedAt         DateTime?
-  trialStartDate      DateTime?
-  trialEndDate        DateTime?
-  purchaseDate        DateTime?
-  expiryDate          DateTime?
-  maxStudents         Int               @default(50)
-  maxQuestions        Int               @default(500)
-  currentStudents     Int               @default(0)
-  currentQuestions    Int               @default(0)
-  features            Json              @default("{}")
-  lastRenewalDate     DateTime?
-  autoRenew           Boolean           @default(false)
-  notes               String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  
-  licenseActivations LicenseActivation[]
-
-  @@index([hardwareFingerprint])
-  @@index([licenseKey])
-  @@index([status])
-  @@index([tier])
-  @@map("licenses")
-}
-
-model Question {
-  id                String       @id @default(cuid())
-  questionText      String       @db.Text
-  questionType      QuestionType @default(MCQ)
-  options           Json
-  optionA           String?      @db.Text
-  optionB           String?      @db.Text
-  optionC           String?      @db.Text
-  optionD           String?      @db.Text
-  correctAnswer     String?
-  explanation       String?      @db.Text
-  images            Json?
-  audioUrl          String?
-  videoUrl          String?
-  allowMultiple     Boolean      @default(false)
-  timeLimitSeconds  Int?
-  points            Int          @default(1)
-  difficulty        Difficulty
-  year              Int?
-  examType          ExamType     @default(JAMB)
-  subjectId         String
-  topicId           String?
-  imageUrl          String?
-  isActive          Boolean      @default(true)
-  createdBy         String
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  
-  examQuestions   ExamQuestion[]
-  creator         User            @relation(fields: [createdBy], references: [id])
-  subject         Subject         @relation(fields: [subjectId], references: [id])
-  topic           Topic?          @relation(fields: [topicId], references: [id])
-  studentAnswers  StudentAnswer[]
-
-  @@index([createdBy])
-  @@index([difficulty])
-  @@index([examType])
-  @@index([subjectId])
-  @@index([topicId])
-  @@index([year])
-  @@map("questions")
-}
-
-model StudentAnswer {
-  id                String       @id @default(cuid())
-  studentExamId     String
-  questionId        String
-  answer            Json?
-  isCorrect         Boolean?
-  pointsEarned      Float        @default(0)
-  timeSpent         Int?
-  answeredAt        DateTime?
-  flaggedForReview  Boolean      @default(false)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  
-  question    Question    @relation(fields: [questionId], references: [id])
-  studentExam StudentExam @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
-
-  @@unique([studentExamId, questionId])
-  @@index([questionId])
-  @@index([studentExamId])
-  @@map("student_answers")
-}
-
-model StudentExam {
-  id                String         @id @default(cuid())
-  examId            String
-  studentId         String
-  status            ExamStatus     @default(NOT_STARTED)
-  startedAt         DateTime?
-  submittedAt       DateTime?
-  timeSpent         Int            @default(0)
-  timeRemaining     Int?
-  totalQuestions    Int
-  answeredQuestions Int            @default(0)
-  correctAnswers    Int            @default(0)
-  wrongAnswers      Int            @default(0)
-  score             Float          @default(0)
-  totalScore        Float          @default(0)
-  passed            Boolean?
-  grade             String?
-  questionOrder     Json
-  autoSubmitted     Boolean        @default(false)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  
-  answers StudentAnswer[]
-  exam    Exam           @relation(fields: [examId], references: [id])
-  student User           @relation(fields: [studentId], references: [id])
-
-  @@unique([examId, studentId])
-  @@index([examId])
-  @@index([status])
-  @@index([studentId])
-  @@map("student_exams")
-}
-
-model StudentProgress {
-  id               String    @id @default(cuid())
-  studentId        String
-  subjectId        String
-  totalQuestions   Int       @default(0)
-  correctAnswers   Int       @default(0)
-  wrongAnswers     Int       @default(0)
-  averageScore     Float     @default(0)
-  lastPracticeDate DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  student User @relation(fields: [studentId], references: [id])
-
-  @@unique([studentId, subjectId])
-  @@index([studentId])
-  @@index([subjectId])
-  @@map("student_progress")
-}
-
-model Subject {
-  id          String     @id @default(cuid())
-  name        String     @unique
-  code        String     @unique
-  description String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  
-  questions Question[]
-  topics    Topic[]
-
-  @@index([code])
-  @@map("subjects")
-}
-
-model Topic {
-  id          String     @id @default(cuid())
-  name        String
-  description String?
-  subjectId   String
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  
-  questions Question[]
-  subject   Subject    @relation(fields: [subjectId], references: [id])
-
-  @@index([subjectId])
-  @@map("topics")
-}
+// ==========================================
+// USER MODEL
+// ==========================================
+// Represents admin, teacher, or student users
+// Tracks authentication, license tier, and relationships
 
 model User {
   id               String    @id @default(cuid())
@@ -278,20 +43,580 @@ model User {
   lastLogin        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  licenseExpiresAt DateTime?
-  phone            String?   @unique
+  
+  // Password reset fields
+  resetToken       String?
+  resetTokenExpires DateTime?
+  
+  // License information
   licenseId        String?
   licenseTier      LicenseTier @default(TRIAL)
+  licenseExpiresAt DateTime?
+  phone            String?   @unique
   
-  exams            Exam[]
-  questions        Question[]
-  studentExams     StudentExam[]
+  // Relationships
+  license          License?       @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+  createdExams     Exam[]         @relation("ExamCreator")
+  createdQuestions Question[]     @relation("QuestionCreator")
+  studentExams     StudentExam[]  @relation("StudentExams")
   studentProgress  StudentProgress[]
-
+  systemSettingsUpdates SystemSettings[] @relation("SettingsUpdater")
+  notifications    Notification[] @relation("UserNotifications")
+  
   @@index([email])
   @@index([role])
+  @@index([licenseTier])
   @@map("users")
 }
+
+// ==========================================
+// EXAM MODEL
+// ==========================================
+// Template for exams created by admin/teacher
+// Example: "JAMB Mock Exam - Mathematics 2024"
+
+model Exam {
+  id                   String    @id @default(cuid())
+  
+  // Basic Info
+  title                String
+  description          String?   @db.Text
+  
+  // Exam Configuration
+  duration             Int       // Duration in seconds (e.g., 3600 = 1 hour)
+  totalMarks           Int       // Total possible marks
+  passMarks            Int       // Marks needed to pass
+  totalQuestions       Int       // How many questions in total
+  
+  // Subject Selection
+  // JSON array of subject IDs: ["subj-1", "subj-2", "subj-3"]
+  subjectIds           Json
+  
+  // Questions per subject (JSON object)
+  // Example: { "subj-1": 40, "subj-2": 40, "subj-3": 20 }
+  questionsPerSubject  Json?
+  
+  // Settings
+  randomizeQuestions   Boolean   @default(false)
+  randomizeOptions     Boolean   @default(false)
+  showResults          Boolean   @default(true)
+  allowReview          Boolean   @default(true)
+  allowRetake          Boolean   @default(false)
+  
+  // Difficulty filter (optional)
+  // JSON array: ["EASY", "MEDIUM"] or null for all
+  difficulties         Json?
+  
+  // Year filter (optional)
+  yearFrom             Int?
+  yearTo               Int?
+  
+  // Status
+  isActive             Boolean   @default(true)
+  isPublished          Boolean   @default(false)
+  
+  // Scheduling (optional)
+  startsAt             DateTime?
+  endsAt               DateTime?
+  
+  // Metadata
+  createdBy            String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  // Relationships
+  creator              User           @relation("ExamCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  examQuestions        ExamQuestion[]
+  studentExams         StudentExam[]
+  notifications        Notification[] @relation("ExamNotifications")
+  
+  @@index([createdBy])
+  @@index([isPublished, isActive])
+  @@index([createdAt])
+  @@map("exams")
+}
+
+// ==========================================
+// EXAM QUESTION MODEL (Junction Table)
+// ==========================================
+// Links specific questions to an exam
+// Ensures exam questions don't change if question bank is updated
+
+model ExamQuestion {
+  id           String   @id @default(cuid())
+  examId       String
+  questionId   String
+  
+  // Order in exam (1, 2, 3...)
+  orderNumber  Int
+  
+  // Points for this question in this exam
+  points       Int      @default(1)
+  
+  // Cache question data (in case original question is deleted)
+  questionData Json
+  
+  createdAt    DateTime @default(now())
+  
+  // Relationships
+  exam         Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([examId, questionId])
+  @@index([examId])
+  @@index([questionId])
+  @@map("exam_questions")
+}
+
+// ==========================================
+// STUDENT EXAM MODEL
+// ==========================================
+// Represents one student's attempt at an exam
+// Tracks progress, time, score
+
+model StudentExam {
+  id                String         @id @default(cuid())
+  examId            String
+  studentId         String
+  
+  // Status
+  status            ExamStatus     @default(NOT_STARTED)
+  
+  // Timing
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  
+  // Time tracking (in seconds)
+  timeSpent         Int            @default(0)
+  timeRemaining     Int?
+  
+  // Scoring
+  totalQuestions    Int
+  answeredQuestions Int            @default(0)
+  correctAnswers    Int            @default(0)
+  wrongAnswers      Int            @default(0)
+  score             Float          @default(0)
+  totalScore        Float          @default(0)
+  
+  // Results
+  passed            Boolean?
+  grade             String?
+  
+  // Question order for this student (JSON array of question IDs)
+  // If randomized, each student gets different order
+  questionOrder     Json
+  
+  // Auto-submitted? (time ran out)
+  autoSubmitted     Boolean        @default(false)
+  
+  // Practice vs Official Exam
+  isPractice        Boolean        @default(false)
+  
+  // Metadata
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Relationships
+  exam              Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student           User           @relation("StudentExams", fields: [studentId], references: [id], onDelete: Cascade)
+  answers           StudentAnswer[]
+  
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([studentId])
+  @@index([status])
+  @@index([studentId, status])
+  @@index([isPractice])
+  @@index([createdAt])
+  @@map("student_exams")
+}
+
+// ==========================================
+// STUDENT ANSWER MODEL
+// ==========================================
+// Individual answer for each question
+
+model StudentAnswer {
+  id             String       @id @default(cuid())
+  studentExamId  String
+  questionId     String
+  
+  // Answer (JSON)
+  // For MCQ: { "selected": "A" } or { "selected": ["A", "B"] } for multiple
+  // For Essay: { "text": "student's essay..." }
+  // For Fill: { "answer": "student's answer" }
+  answer         Json?
+  
+  // Correctness
+  isCorrect      Boolean?
+  pointsEarned   Float        @default(0)
+  
+  // Timing
+  timeSpent      Int?         // Seconds on this question
+  
+  // Metadata
+  answeredAt     DateTime?
+  flaggedForReview Boolean    @default(false)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Relationships
+  studentExam    StudentExam  @relation(fields: [studentExamId], references: [id], onDelete: Cascade)
+  question       Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentExamId, questionId])
+  @@index([studentExamId])
+  @@index([questionId])
+  @@map("student_answers")
+}
+
+// ==========================================
+// QUESTION MODEL
+// ==========================================
+// Question bank for exams
+// Supports multiple question types (MCQ, True/False, Essay, etc.)
+
+model Question {
+  id                String       @id @default(cuid())
+  questionText      String       @db.Text
+  questionType      QuestionType @default(MCQ)
+  
+  // Single source of truth for options (JSON)
+  // Format:
+  // {
+  //   "A": { "text": "First option", "explanation": "Why A is wrong" },
+  //   "B": { "text": "Second option" },
+  //   "C": { "text": "Third option" },
+  //   "D": { "text": "Fourth option" }
+  // }
+  // Or for TRUE_FALSE:
+  // { "TRUE": { "text": "True" }, "FALSE": { "text": "False" } }
+  options           Json
+  
+  // Which option is correct: "A", "B", "C", "D", "TRUE", "FALSE"
+  correctAnswer     String?
+  
+  // Explanation for correct answer
+  explanation       String?      @db.Text
+  
+  // Media
+  images            Json?        // Array of image URLs
+  audioUrl          String?
+  videoUrl          String?
+  
+  // Question settings
+  allowMultiple     Boolean      @default(false)
+  timeLimitSeconds  Int?
+  points            Int          @default(1)
+  
+  // Classification
+  difficulty        Difficulty
+  year              Int?
+  examType          ExamType     @default(JAMB)
+  
+  // Organization
+  subjectId         String
+  topicId           String?
+  
+  // Status
+  isActive          Boolean      @default(true)
+  
+  // Metadata
+  createdBy         String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // Relationships
+  examQuestions     ExamQuestion[]
+  creator           User         @relation("QuestionCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  subject           Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic             Topic?       @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  studentAnswers    StudentAnswer[]
+  
+  @@index([createdBy])
+  @@index([difficulty])
+  @@index([examType])
+  @@index([subjectId])
+  @@index([subjectId, difficulty])
+  @@index([year])
+  @@map("questions")
+}
+
+// ==========================================
+// SUBJECT MODEL
+// ==========================================
+// JAMB/WAEC subjects for Nigerian exams
+
+model Subject {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  code        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relationships
+  questions   Question[]
+  topics      Topic[]
+  studentProgress StudentProgress[]
+  
+  @@index([code])
+  @@map("subjects")
+}
+
+// ==========================================
+// TOPIC MODEL
+// ==========================================
+// Topics within each subject (e.g., Algebra under Mathematics)
+
+model Topic {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  subjectId   String
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relationships
+  questions   Question[]
+  subject     Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  @@unique([name, subjectId])
+  @@index([subjectId])
+  @@map("topics")
+}
+
+// ==========================================
+// STUDENT PROGRESS MODEL
+// ==========================================
+// Tracks student performance per subject
+
+model StudentProgress {
+  id               String    @id @default(cuid())
+  studentId        String
+  subjectId        String
+  
+  // Performance metrics
+  totalQuestions   Int       @default(0)
+  correctAnswers   Int       @default(0)
+  wrongAnswers     Int       @default(0)
+  averageScore     Float     @default(0)
+  
+  // Tracking
+  lastPracticeDate DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Relationships
+  student          User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject          Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentId, subjectId])
+  @@index([studentId])
+  @@index([subjectId])
+  @@map("student_progress")
+}
+
+// ==========================================
+// LICENSE MODEL
+// ==========================================
+// Master license record for each installation
+
+model License {
+  id                  String            @id @default(cuid())
+  
+  // License key (format: UTME-XXXX-XXXX-XXXX-XXXX)
+  licenseKey          String            @unique
+  
+  // License tier and status
+  tier                LicenseTier       @default(TRIAL)
+  status              LicenseStatus     @default(ACTIVE)
+  
+  // Organization info
+  organizationName    String?
+  contactEmail        String?
+  contactPhone        String?
+  
+  // Hardware binding (SHA256 hash)
+  hardwareFingerprint String?           @unique
+  
+  // Activation status
+  isActivated         Boolean           @default(false)
+  activatedAt         DateTime?
+  
+  // Trial period
+  trialStartDate      DateTime?
+  trialEndDate        DateTime?
+  
+  // Subscription dates
+  purchaseDate        DateTime?
+  expiryDate          DateTime?
+  
+  // Usage limits
+  maxStudents         Int               @default(50)
+  maxQuestions        Int               @default(500)
+  currentStudents     Int               @default(0)
+  currentQuestions    Int               @default(0)
+  
+  // Features enabled (JSON object)
+  // {
+  //   "whiteLabel": true/false,
+  //   "exportReports": true/false,
+  //   "advancedAnalytics": true/false,
+  //   "bulkImport": true/false,
+  //   "apiAccess": true/false,
+  //   "multipleAdmins": true/false
+  // }
+  features            Json              @default("{}")
+  
+  // Renewal tracking
+  lastRenewalDate     DateTime?
+  autoRenew           Boolean           @default(false)
+  
+  // Admin notes
+  notes               String?
+  
+  // Timestamps
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  // Relationships
+  users               User[]
+  activations         LicenseActivation[]
+  
+  @@index([licenseKey])
+  @@index([status])
+  @@index([tier])
+  @@index([hardwareFingerprint])
+  @@map("licenses")
+}
+
+// ==========================================
+// LICENSE ACTIVATION MODEL
+// ==========================================
+// Tracks activation attempts and history
+
+model LicenseActivation {
+  id                  String   @id @default(cuid())
+  
+  // License reference
+  licenseId           String
+  license             License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  
+  // Hardware info at time of activation
+  hardwareFingerprint String
+  cpuId               String
+  motherboardSerial   String
+  macAddress          String
+  
+  // Computer info
+  computerName        String?
+  osVersion           String?
+  ipAddress           String?
+  
+  // Activation result
+  success             Boolean  @default(true)
+  errorMessage        String?
+  
+  // Action type
+  action              String   // "ACTIVATE", "DEACTIVATE", "VERIFY", "TRANSFER"
+  
+  // Timestamp
+  createdAt           DateTime @default(now())
+  
+  // Relationships (implicit via licenseId)
+  
+  @@index([licenseId])
+  @@index([hardwareFingerprint])
+  @@map("license_activations")
+}
+
+// ==========================================
+// SYSTEM SETTINGS MODEL
+// ==========================================
+// Stores application-wide configuration settings
+// Only admins can modify these settings
+
+model SystemSettings {
+  id                    String   @id @default(cuid())
+  
+  // General Settings
+  siteName              String   @default("UTME Master")
+  siteDescription       String   @default("Professional UTME Examination System")
+  maintenanceMode       Boolean  @default(false)
+  maxUploadSize         Int      @default(5)      // MB
+  sessionTimeout        Int      @default(30)     // minutes
+  timezone              String   @default("Africa/Lagos")
+  
+  // Security Settings
+  enableTwoFactor       Boolean  @default(true)
+  passwordMinLength     Int      @default(8)
+  passwordExpiry        Int      @default(90)     // days
+  maxLoginAttempts      Int      @default(5)
+  lockoutDuration       Int      @default(15)     // minutes
+  enableAuditLog        Boolean  @default(true)
+  
+  // Email Settings
+  enableNotifications   Boolean  @default(true)
+  smtpHost              String   @default("smtp.gmail.com")
+  smtpPort              Int      @default(587)
+  smtpUsername          String   @default("")
+  smtpPassword          String   @default("")
+  fromEmail             String   @default("noreply@utmemaster.com")
+  
+  // Metadata
+  updatedBy             String   // User ID who last updated
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  updatedByUser         User     @relation("SettingsUpdater", fields: [updatedBy], references: [id])
+  
+  @@map("system_settings")
+}
+
+// ==========================================
+// NOTIFICATION MODEL
+// ==========================================
+// Real-time notifications for users
+
+model Notification {
+  id          String            @id @default(cuid())
+  
+  // Notification content
+  type        NotificationType  @default(INFO)
+  title       String
+  message     String            @db.Text
+  
+  // Targeting
+  userId      String
+  examId      String?
+  
+  // Status
+  isRead      Boolean           @default(false)
+  readAt      DateTime?
+  
+  // Metadata
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  // Relationships
+  user        User              @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  exam        Exam?             @relation("ExamNotifications", fields: [examId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([examId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
 
 enum Difficulty {
   EASY
@@ -339,7 +664,18 @@ enum QuestionType {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   TEACHER
   STUDENT
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+  EXAM_START
+  EXAM_END
+  SYSTEM_MAINTENANCE
 }

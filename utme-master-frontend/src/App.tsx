@@ -19,16 +19,16 @@ const ProfileSettings = lazy(() => import('./pages/profile/Settings'))
 
 // Student pages
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'))
-const SubjectSelection = lazy(() => import('./pages/student/SubjectSelection'))
+const ExamDashboard = lazy(() => import('./pages/student/ExamDashboard'))
+const TestDashboard = lazy(() => import('./pages/student/TestDashboard'))
+const ExamSelection = lazy(() => import('./pages/student/ExamSelection'))
 const ExamInterface = lazy(() => import('./pages/student/ExamInterface'))
 const Results = lazy(() => import('./pages/student/Results'))
 const ExamReview = lazy(() => import('./pages/student/ExamReview'))
-const StudentAnalytics = lazy(() => import('./pages/student/Analytics'))
-const SimpleSubjectDashboard = lazy(() => import('./pages/student/SimpleSubjectDashboard'))
-const ExamStart = lazy(() => import('./pages/student/ExamStart'))
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const ExamManagement = lazy(() => import('./pages/admin/ExamManagement'))
 const QuestionList = lazy(() => import('./pages/admin/QuestionList'))
 const QuestionCreate = lazy(() => import('./pages/admin/QuestionCreate'))
 const QuestionEdit = lazy(() => import('./pages/admin/QuestionEdit'))
@@ -60,7 +60,7 @@ function App() {
   
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true }}>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* Public Routes */}
@@ -87,27 +87,27 @@ function App() {
                 <StudentDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/student/subjects" element={
+            <Route path="/student/exam-dashboard" element={
               <ProtectedRoute requiredRole="STUDENT">
-                <SubjectSelection />
+                <ExamDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/student/exam-start" element={
+            <Route path="/student/test-dashboard" element={
               <ProtectedRoute requiredRole="STUDENT">
-                <ExamStart />
+                <TestDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/student/subjects-simple" element={
+            <Route path="/student/exams" element={
               <ProtectedRoute requiredRole="STUDENT">
-                <SimpleSubjectDashboard />
+                <ExamSelection />
               </ProtectedRoute>
             } />
-            <Route path="/student/exam/:id" element={
+            <Route path="/student/exam/:studentExamId" element={
               <ProtectedRoute requiredRole="STUDENT">
                 <ExamInterface />
               </ProtectedRoute>
             } />
-            <Route path="/student/results/:id" element={
+            <Route path="/student/results/:studentExamId" element={
               <ProtectedRoute requiredRole="STUDENT">
                 <Results />
               </ProtectedRoute>
@@ -117,16 +117,16 @@ function App() {
                 <ExamReview />
               </ProtectedRoute>
             } />
-            <Route path="/student/analytics" element={
-              <ProtectedRoute requiredRole="STUDENT">
-                <StudentAnalytics />
-              </ProtectedRoute>
-            } />
 
             {/* Admin Protected Routes - Allow both ADMIN and TEACHER */}
             <Route path="/admin/dashboard" element={
               <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/exams" element={
+              <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
+                <ExamManagement />
               </ProtectedRoute>
             } />
             <Route path="/admin/questions" element={

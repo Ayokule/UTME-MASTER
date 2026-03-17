@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion'
 import Card from '../ui/Card'
-import { SubjectScore } from '../../types/results'
+import { SubjectBreakdown as SubjectBreakdownType } from '../../types/results'
 
 interface Props {
-  subjects: SubjectScore[]
+  subjects: SubjectBreakdownType[]
 }
 
 export default function SubjectBreakdown({ subjects }: Props) {

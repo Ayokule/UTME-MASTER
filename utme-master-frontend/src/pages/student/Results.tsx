@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye } from 'lucide-react'
 import Layout from '../../components/Layout'
+import SafePageWrapper from '../../components/SafePageWrapper'
+import BlankPageDetector from '../../components/BlankPageDetector'
 import CelebrationHeader from '../../components/results/CelebrationHeader'
 import OverallScoreCard from '../../components/results/OverallScoreCard'
 import SubjectBreakdown from '../../components/results/SubjectBreakdown'
@@ -11,7 +13,7 @@ import PremiumAnalytics from '../../components/results/PremiumAnalytics'
 import ResultActions from '../../components/results/ResultActions'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { useAuthStore } from '../../store/auth'
-import { getExamResults, retakeExam, downloadResultsPDF } from '../../api/results.js'
+import { getExamResults, retakeExam, downloadResultsPDF } from '../../api/results'
 import { ExamResults } from '../../types/results'
 import { showToast } from '../../components/ui/Toast'
 
@@ -50,11 +52,11 @@ export default function Results() {
   }
 
   const handleRetake = async () => {
-    if (!results) return
+    if (!results || !studentExamId) return
 
     try {
       setRetaking(true)
-      const { studentExamId: newStudentExamId } = await retakeExam(results.exam.id)
+      const { studentExamId: newStudentExamId } = await retakeExam(studentExamId)
       navigate(`/student/exam/${newStudentExamId}`)
     } catch (error: any) {
       showToast.error(error.message || 'Failed to start retake')
@@ -114,8 +116,13 @@ export default function Results() {
   }
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SafePageWrapper pageName="Exam Results">
+      <Layout>
+        <BlankPageDetector 
+          pageName="Exam Results" 
+          hasContent={!!results}
+        />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Celebration Header */}
         <CelebrationHeader 
           score={results.score} 
@@ -180,6 +187,7 @@ export default function Results() {
           <QuestionReview questions={results.questions} />
         </div>
       </div>
-    </Layout>
+      </Layout>
+    </SafePageWrapper>
   )
 }

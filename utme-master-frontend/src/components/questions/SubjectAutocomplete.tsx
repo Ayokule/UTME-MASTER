@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Loader } from 'lucide-react'
+import { getSubjects } from '../../api/questions'
 
 interface Subject {
   id: string
@@ -48,12 +49,15 @@ export default function SubjectAutocomplete({
   const loadSubjects = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:3000/api/subjects')
-      const data = await response.json()
+      const subjectNames = await getSubjects()
       
-      if (data.success) {
-        setSubjects(data.data || [])
-      }
+      // Convert string array to Subject objects
+      const subjectObjects: Subject[] = subjectNames.map((name, index) => ({
+        id: `subject-${index}`,
+        name
+      }))
+      
+      setSubjects(subjectObjects)
     } catch (error) {
       console.error('Failed to load subjects:', error)
     } finally {

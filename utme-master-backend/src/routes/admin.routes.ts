@@ -17,9 +17,9 @@ router.post('/create-admin',
   adminController.createAdminAccount
 )
 
-// All other admin routes require authentication and admin role
+// All other admin routes require authentication and admin/teacher role
 router.use(authenticate)
-router.use(authorizeRole(['ADMIN']))
+router.use(authorizeRole(['ADMIN', 'TEACHER']))
 
 // Admin dashboard data
 router.get('/dashboard', adminController.getDashboardData)

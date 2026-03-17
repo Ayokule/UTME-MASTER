@@ -72,17 +72,15 @@ export default function Modal({
             {/* Header */}
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                {title && (
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {title}
-                  </h3>
-                )}
+                <h3 className="text-xl font-bold text-gray-900 flex-1">
+                  {title}
+                </h3>
                 {showCloseButton && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="!p-2 hover:bg-gray-100 rounded-lg"
+                    className="!p-2 hover:bg-gray-100 rounded-lg ml-4"
                   >
                     <X className="w-5 h-5" />
                   </Button>

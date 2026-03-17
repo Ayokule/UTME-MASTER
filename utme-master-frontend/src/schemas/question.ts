@@ -12,8 +12,8 @@ export const questionSchema = z.object({
     message: 'Correct answer is required'
   }),
   explanation: z.string().optional(),
-  difficulty: z.enum(['Easy', 'Medium', 'Hard'], {
-    message: 'Difficulty is required'
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], {
+    message: 'Difficulty must be EASY, MEDIUM, or HARD'
   }),
   year: z.number().min(2000).max(2030).optional(),
   examType: z.enum(['JAMB', 'WAEC', 'NECO'], {
@@ -33,7 +33,7 @@ export const questionSchema = z.object({
 export const questionFiltersSchema = z.object({
   subjects: z.array(z.string()).default([]),
   topics: z.array(z.string()).default([]),
-  difficulty: z.enum(['Easy', 'Medium', 'Hard']).optional(),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
   yearFrom: z.number().min(2000).max(2030).optional(),
   yearTo: z.number().min(2000).max(2030).optional(),
   examType: z.enum(['JAMB', 'WAEC', 'NECO']).optional(),
@@ -60,8 +60,8 @@ export const bulkImportRowSchema = z.object({
     message: 'Correct answer must be A, B, C, or D'
   }),
   Explanation: z.string().optional(),
-  Difficulty: z.enum(['Easy', 'Medium', 'Hard'], {
-    message: 'Difficulty must be Easy, Medium, or Hard'
+  Difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], {
+    message: 'Difficulty must be EASY, MEDIUM, or HARD'
   }),
   Year: z.number().min(2000).max(2030).optional(),
   'Exam Type': z.enum(['JAMB', 'WAEC', 'NECO'], {

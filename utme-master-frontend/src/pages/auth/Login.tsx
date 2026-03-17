@@ -54,7 +54,7 @@ export default function Login() {
     })
   }
 
-  const handleQuickLogin = async (email: string, password: string, role: string) => {
+  const handleQuickLogin = async (email: string, password: string) => {
     setFormData({ email, password })
     setLoading(true)
 
@@ -204,47 +204,60 @@ export default function Login() {
             </p>
           </motion.div>
 
-          {/* Demo Credentials */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl"
-          >
-            <p className="text-sm font-semibold text-blue-800 mb-4 flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              Quick Access
-            </p>
-            <div className="space-y-3">
-              <Button
-                onClick={() => handleQuickLogin('student@demo.com', 'password123', 'Student')}
-                disabled={loading}
-                variant="outline"
-                size="sm"
-                className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
-              >
-                🎓 Student Portal
-              </Button>
-              <Button
-                onClick={() => handleQuickLogin('teacher@demo.com', 'password123', 'Teacher')}
-                disabled={loading}
-                variant="outline"
-                size="sm"
-                className="w-full text-purple-700 border-purple-300 hover:bg-purple-50"
-              >
-                👨‍🏫 Teacher Portal
-              </Button>
-              <Button
-                onClick={() => handleQuickLogin('admin@demo.com', 'password123', 'Admin')}
-                disabled={loading}
-                variant="outline"
-                size="sm"
-                className="w-full text-green-700 border-green-300 hover:bg-green-50"
-              >
-                👨‍💼 Admin Portal
-              </Button>
+         
+            {/* Quick Login */}
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
+              <p className="text-sm font-semibold text-blue-800 mb-4 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Quick Access - Demo Accounts
+              </p>
+              <div className="space-y-3">
+                <Button
+                  onClick={() => handleQuickLogin('admin@utmemaster.com', 'Admin@123')}
+                  disabled={loading}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-green-700 border-green-300 hover:bg-green-50"
+                >
+                  👨‍💼 Admin Portal
+                </Button>
+                <Button
+                  onClick={() => handleQuickLogin('student1@test.com', 'Student@123')}
+                  disabled={loading}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
+                >
+                  🎓 Student 1 Portal
+                </Button>
+                <Button
+                  onClick={() => handleQuickLogin('student2@test.com', 'Student@123')}
+                  disabled={loading}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
+                >
+                  🎓 Student 2 Portal
+                </Button>
+              </div>
             </div>
-          </motion.div>
+
+            {/* Credentials Info */}
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-xs font-semibold text-amber-800 mb-3">📋 Default Credentials:</p>
+              <div className="space-y-2 text-xs text-amber-700">
+                <div>
+                  <p className="font-medium">Admin Account:</p>
+                  <p className="text-amber-600">Email: admin@utmemaster.com</p>
+                  <p className="text-amber-600">Password: Admin@123</p>
+                </div>
+                <div>
+                  <p className="font-medium">Student Accounts:</p>
+                  <p className="text-amber-600">Email: student1@test.com / student2@test.com</p>
+                  <p className="text-amber-600">Password: Student@123</p>
+                </div>
+              </div>
+            </div>
 
           {/* Backend Status */}
           <motion.div
@@ -253,10 +266,10 @@ export default function Login() {
             transition={{ delay: 0.8 }}
             className="mt-6 text-center"
           >
-            <p className="text-xs text-gray-500 flex items-center justify-center gap-2">
+            <div className="text-xs text-gray-500 flex items-center justify-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              Backend: localhost:3000 | Frontend: localhost:5173
-            </p>
+              <span>Backend: localhost:3000 | Frontend: localhost:5173</span>
+            </div>
           </motion.div>
         </Card>
       </motion.div>

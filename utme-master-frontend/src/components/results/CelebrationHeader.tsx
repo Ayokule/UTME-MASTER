@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion'
 import { Trophy, Star, Target, BookOpen } from 'lucide-react'
-import { ExamScore } from '../../types/results'
+import { Score } from '../../types/results'
 
 interface Props {
-  score: ExamScore
+  score: Score
   examTitle: string
 }
 

@@ -12,8 +12,15 @@ import {
   submitAnswerSchema,
   startPracticeExamSchema 
 } from '../validation/exam.validation'
+import { prisma } from '../config/database'
 
 const router = Router()
+
+// Attach prisma to request
+router.use((req: any, res, next) => {
+  req.prisma = prisma
+  next()
+})
 
 // ==========================================
 // ADMIN/TEACHER ROUTES
@@ -91,19 +98,90 @@ router.post(
 // GET RESULTS
 // GET /api/exams/results/:studentExamId
 router.get(
-  '/results/:studentExamId',
+  '/student/results/:studentExamId',
   authenticate,
   examController.getResults
 )
 
-// GET REVIEW QUESTIONS
+// GET DETAILED REVIEW QUESTIONS
 // GET /api/exams/results/:studentExamId/review
 router.get(
-  '/results/:studentExamId/review',
+  '/student/results/:studentExamId/review',
   authenticate,
-  examController.getReviewQuestions
+  examController.getDetailedReviewQuestions
 )
 
+// GET QUESTION PERFORMANCE ANALYSIS
+// GET /api/exams/results/:studentExamId/analysis
+router.get(
+  '/student/results/:studentExamId/analysis',
+  authenticate,
+  examController.getQuestionPerformanceAnalysis
+)
+
+// GET EXAM STATISTICS (Admin/Teacher)
+// GET /api/exams/:id/statistics
+router.get(
+  '/:id/statistics',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  examController.getExamStatistics
+)
+
+// RETAKE EXAM
+// POST /api/exams/:examId/retake
+router.post(
+  '/:examId/retake',
+  authenticate,
+  authorizeRole(['STUDENT']),
+  examController.retakeExam
+)
+
+// ==========================================
+// EXAM SCHEDULING ROUTES
+// ==========================================
+
+// GET AVAILABLE EXAMS (with scheduling)
+// GET /api/exams/available
+router.get(
+  '/available',
+  authenticate,
+  authorizeRole(['STUDENT']),
+  examController.getAvailableExams
+)
+
+// SCHEDULE EXAM (Admin/Teacher)
+// PUT /api/exams/:examId/schedule
+router.put(
+  '/:examId/schedule',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  examController.scheduleExam
+)
+
+// GET SCHEDULED EXAMS (Admin/Teacher)
+// GET /api/exams/scheduled
+router.get(
+  '/scheduled',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  examController.getScheduledExams
+)
+
+// CHECK EXAM AVAILABILITY
+// GET /api/exams/:examId/availability
+router.get(
+  '/:examId/availability',
+  authenticate,
+  examController.checkExamAvailability
+)
+
+// PROCESS EXAM SCHEDULING (Internal/Cron)
+// POST /api/exams/process-scheduling
+router.post(
+  '/process-scheduling',
+  examController.processExamScheduling
+)
 export default router
 
 // ==========================================

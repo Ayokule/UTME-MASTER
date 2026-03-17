@@ -13,6 +13,7 @@
 
 import { prisma } from '../config/database'
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors'
+import { throwServiceError } from '../utils/errorStandardization'
 import { logger } from '../utils/logger'
 import crypto from 'crypto'
 import { exec } from 'child_process'
@@ -151,7 +152,7 @@ export async function getHardwareFingerprint(): Promise<{
     
   } catch (error) {
     logger.error('Error getting hardware fingerprint:', error)
-    throw new Error('Failed to get hardware fingerprint')
+    throwServiceError('Failed to get hardware fingerprint')
   }
 }
 
@@ -555,7 +556,7 @@ export async function getLicenseInfo() {
       isActivated: true
     },
     include: {
-      licenseActivations: {
+      activations: {
         orderBy: { createdAt: 'desc' },
         take: 5
       }
@@ -588,6 +589,6 @@ export async function getLicenseInfo() {
     expiryDate: activatedLicense.expiryDate,
     activatedAt: activatedLicense.activatedAt,
     warnings: validation.warnings,
-    recentActivations: activatedLicense.licenseActivations
+    recentActivations: activatedLicense.activations
   }
 }

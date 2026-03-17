@@ -53,6 +53,16 @@ export const getProfile = async (): Promise<{ success: boolean; data: { user: Us
   return response.data
 }
 
+// Change password
+export const changePassword = async (data: {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post('/auth/change-password', data)
+  return response.data
+}
+
 // Logout user
 export const logout = async (): Promise<void> => {
   try {
@@ -61,4 +71,16 @@ export const logout = async (): Promise<void> => {
     localStorage.removeItem('authToken')
     localStorage.removeItem('user')
   }
+}
+
+// Request password reset
+export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post('/auth/forgot-password', { email })
+  return response.data
+}
+
+// Reset password with token
+export const resetPassword = async (token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiClient.post('/auth/reset-password', { token, newPassword })
+  return response.data
 }

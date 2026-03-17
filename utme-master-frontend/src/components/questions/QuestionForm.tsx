@@ -61,7 +61,7 @@ export default function QuestionForm({ question, onSubmit, onCancel, loading }: 
       optionD: '',
       correctAnswer: 'A',
       explanation: '',
-      difficulty: 'Medium',
+      difficulty: 'MEDIUM',
       year: undefined,
       examType: 'JAMB',
       imageUrl: ''
@@ -319,9 +319,9 @@ export default function QuestionForm({ question, onSubmit, onCancel, loading }: 
                   {...register('difficulty')}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200 focus:outline-none"
                 >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="EASY">Easy</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HARD">Hard</option>
                 </select>
               </div>
 

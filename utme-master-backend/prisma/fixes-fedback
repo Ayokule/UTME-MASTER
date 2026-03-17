@@ -1,4 +1,109 @@
-update the start-all-services.bat  to include option of run seed
-run migrations and more 
+exam interface is not showing the answer question,flagged question,question time tracking and other function that are supposed to be there are not showing
 
-do these only no extra file needed
+
+
+fix this (Endpoint: GET /subjects
+
+Status: 500
+
+URL: /subjects
+
+Details
+
+{   "success": false,   "message": "\nInvalid `prisma.subject.findMany()` invocation in\nC:\\UTME-MASTER\\utme-master-backend\\src\\services\\subject.service.ts:25:41\n\n  22 \n  23 export async function getAllSubjects() {\n  24   // Get all active subjects\n→ 25   const subjects = await prisma.subject.findMany(\nCan't reach database server at `localhost:5432`\n\nPlease make sure your database server is running at `localhost:5432`.",   "error": "PrismaClientKnownRequestError: \nInvalid `prisma.subject.findMany()` invocation in\nC:\\UTME-MASTER\\utme-master-backend\\src\\services\\subject.service.ts:25:41\n\n  22 \n  23 export async function getAllSubjects() {\n  24   // Get all active subjects\n→ 25   const subjects = await prisma.subject.findMany(\nCan't reach database server at `localhost:5432`\n\nPlease make sure your database server is running at `localhost:5432`.\n    at $n.handleRequestError (C:\\UTME-MASTER\\utme-master-backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:7315)\n    at $n.handleAndLogRequestError (C:\\UTME-MASTER\\utme-master-backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6623)\n    at $n.request (C:\\UTME-MASTER\\utme-master-backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6307)\n    at async l (C:\\UTME-MASTER\\utme-master-backend\\node_modules\\@prisma\\client\\runtime\\library.js:130:9633)\n    at async Object.getAllSubjects (C:\\UTME-MASTER\\utme-master-backend\\src\\services\\subject.service.ts:25:20)\n    at async C:\\UTME-MASTER\\utme-master-backend\\src\\controllers\\subject.controller.ts:37:20",   "code": "P1001",   "statusCode": 500,   "timestamp": "2026-03-14T07:04:32.683Z",   "path": "/api/subjects",   "method": "GET" }
+
+API_ERROR
+
+Validation failed
+
+8:05:11 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:17 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:19 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:22 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:24 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:26 AM
+
+API_ERROR
+
+Validation failed
+
+8:05:27 AM
+
+API_ERROR
+
+Endpoint: POST /exams/cmmpzdquv001721vsgsvw4xj3/answers
+
+Status: 422
+
+URL: /exams/cmmpzdquv001721vsgsvw4xj3/answers
+
+Details
+
+{   "success": false,   "message": "Validation failed",   "error": "ValidationError: Validation failed\n    at C:\\UTME-MASTER\\utme-master-backend\\src\\middleware\\validation.middleware.ts:93:14",   "code": "VALIDATION_ERROR",   "statusCode": 422,   "timestamp": "2026-03-14T07:05:11.299Z",   "path": "/api/exams/cmmpzdquv001721vsgsvw4xj3/answers",   "method": "POST" }
+
+
+  "success": false,
+  "message": "Exam already submitted. Please view your results.",
+  "error": "BadRequestError: Exam already submitted. Please view your results.\n    at Object.resumeExam (C:\\UTME-MASTER\\utme-master-backend\\src\\services\\exam.service.ts:962:11)\n    at async C:\\UTME-MASTER\\utme-master-backend\\src\\controllers\\exam.controller.ts:130:20",
+  "code": "BAD_REQUEST",
+  "statusCode": 400,
+  "timestamp": "2026-03-14T07:13:47.317Z",
+  "path": "/api/exams/resume/cmmpzdquv001721vsgsvw4xj3",
+  "method": "GET"
+}// cant view results
+8:05:45 AM
+
+1
+
+ info: Exam submitted: Score 0/40, Passed: false
+
+POST /api/exams/cmmpzdquv001721vsgsvw4xj3/submit 200 135.553 ms - 363
+
+prisma:query UPDATE "public"."student_exams" SET "status" = CAST($1::text
+
+2. when i click on go home in the error 404 page it should take me to the dashbeard
+not login
+
+3. if i click on go back it should take me back to the formal page and should reload by it self
+  
+4. fix the analysis page in the student folder- where it shows perfomance analysis
+   i. it should show all resent exam or test taken, add view more for pros
+   ii.when clicked it should take me to the page where it can review the exam taken resently.
+     e.g questions,answer, and etc.
+   iii. add back button for analysis page to go to dashbeard 
+5. the student dashboard --/student/dashbeard from line 648 to down ward are invisible 
+
+
+summary of fixes needed
+1. fix the exam interface to show 
+2. fix error of not submiting exam
+fix analysis page 
+fix the 404 page not found back button
+
+only these fixes (no md file of fixes)
+do not create md file, 

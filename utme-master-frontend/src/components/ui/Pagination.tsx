@@ -52,9 +52,9 @@ export default function Pagination({
   const endItem = Math.min(currentPage * pageSize, totalItems || 0)
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-200">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-t border-gray-200">
       {/* Results Info */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row items-center gap-4 order-2 sm:order-1">
         {totalItems && (
           <p className="text-sm text-gray-700">
             Showing <span className="font-medium">{startItem}</span> to{' '}
@@ -82,7 +82,7 @@ export default function Pagination({
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 order-1 sm:order-2">
         {/* Previous Button */}
         <Button
           variant="outline"

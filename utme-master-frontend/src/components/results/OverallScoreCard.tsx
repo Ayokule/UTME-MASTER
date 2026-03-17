@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
 import { Clock, CheckCircle, XCircle, } from 'lucide-react'
 import Card from '../ui/Card'
-import { ExamScore } from '../../types/results'
+import { Score } from '../../types/results'
 
 interface Props {
-  score: ExamScore
+  score: Score
   totalQuestions: number
 }
 

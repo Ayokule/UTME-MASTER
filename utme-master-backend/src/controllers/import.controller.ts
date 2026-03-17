@@ -58,7 +58,7 @@ export const bulkImportQuestions = asyncHandler(async (req: Request, res: Respon
   const file = req.file
   
   // ==========================================
-  // STEP 2: Validate file type
+  // STEP 2: Validate file type and size
   // ==========================================
   // Only accept Excel and CSV files
   const allowedExtensions = ['.xlsx', '.xls', '.csv']
@@ -68,38 +68,73 @@ export const bulkImportQuestions = asyncHandler(async (req: Request, res: Respon
     throw new BadRequestError('Invalid file type. Only Excel (.xlsx, .xls) and CSV (.csv) files are allowed.')
   }
   
-  // Check file size (max 5MB)
-  const maxSize = 5 * 1024 * 1024  // 5MB in bytes
+  // Check file size (max 10MB for enhanced version)
+  const maxSize = 10 * 1024 * 1024  // 10MB in bytes
   if (file.size > maxSize) {
-    throw new BadRequestError('File too large. Maximum size is 5MB.')
+    throw new BadRequestError('File too large. Maximum size is 10MB.')
   }
   
-  logger.info(`Processing bulk import: ${file.originalname} (${file.size} bytes)`)
+  // Validate file content type
+  const allowedMimeTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'text/csv', // .csv
+    'application/csv'
+  ]
+  
+  if (file.mimetype && !allowedMimeTypes.includes(file.mimetype)) {
+    logger.warn(`Unexpected MIME type: ${file.mimetype} for file: ${file.originalname}`)
+  }
+  
+  logger.info(`Processing enhanced bulk import: ${file.originalname} (${file.size} bytes, ${file.mimetype})`)
   
   // ==========================================
-  // STEP 3: Process file
+  // STEP 3: Process file with enhanced service
   // ==========================================
   // Get user ID from authenticated request
   const userId = (req as any).user.id
   
-  // Call service to parse and import questions
-  const result = await importService.bulkImportQuestions(
+  // Call enhanced service to parse and import questions
+  const statistics = await importService.bulkImportQuestions(
     file.buffer,           // File content as Buffer
     file.originalname,     // Original filename
     userId                 // User ID for createdBy field
   )
   
   // ==========================================
-  // STEP 4: Send response
+  // STEP 4: Generate comprehensive response
   // ==========================================
-  const message = `Import completed: ${result.successCount} success, ${result.errorCount} errors`
+  const message = `Import completed: ${statistics.successCount} success, ${statistics.errorCount} errors`
   
-  logger.info(message)
+  if (statistics.warningCount > 0) {
+    logger.info(`${message}, ${statistics.warningCount} warnings`)
+  } else {
+    logger.info(message)
+  }
   
-  res.status(200).json({
-    success: true,
+  // Determine response status based on results
+  let statusCode = 200
+  if (statistics.errorCount > 0 && statistics.successCount === 0) {
+    statusCode = 400 // All failed
+  } else if (statistics.errorCount > 0) {
+    statusCode = 207 // Partial success
+  }
+  
+  res.status(statusCode).json({
+    success: statistics.successCount > 0,
     message,
-    data: result
+    data: {
+      ...statistics,
+      summary: {
+        totalProcessed: statistics.totalRows,
+        successful: statistics.successCount,
+        failed: statistics.errorCount,
+        warnings: statistics.warningCount,
+        duplicatesSkipped: statistics.duplicatesSkipped,
+        subjectsProcessed: statistics.subjectsProcessed.length,
+        topicsCreated: statistics.topicsCreated.length
+      }
+    }
   })
 })
 
@@ -117,10 +152,10 @@ export const bulkImportQuestions = asyncHandler(async (req: Request, res: Respon
 
 export const downloadTemplate = asyncHandler(async (req: Request, res: Response) => {
   // ==========================================
-  // Create Excel template
+  // Create Enhanced Excel template
   // ==========================================
   
-  // Define columns (headers)
+  // Define columns (headers) with descriptions
   const headers = [
     'subjectCode',
     'topicName',
@@ -133,52 +168,92 @@ export const downloadTemplate = asyncHandler(async (req: Request, res: Response)
     'explanation',
     'difficulty',
     'year',
-    'examType'
+    'examType',
+    'points',
+    'timeLimitSeconds'
   ]
   
-  // Add example rows
+  // Add comprehensive example rows
   const exampleData = [
     {
       subjectCode: 'MTH',
       topicName: 'Algebra',
-      questionText: 'What is 2 + 2?',
-      optionA: '3',
-      optionB: '4',
-      optionC: '5',
-      optionD: '6',
+      questionText: 'Solve for x: 2x + 5 = 13',
+      optionA: 'x = 3',
+      optionB: 'x = 4',
+      optionC: 'x = 5',
+      optionD: 'x = 6',
       correctAnswer: 'B',
-      explanation: 'Basic addition: 2 + 2 = 4',
+      explanation: '2x + 5 = 13, so 2x = 8, therefore x = 4',
       difficulty: 'EASY',
       year: 2024,
-      examType: 'JAMB'
+      examType: 'JAMB',
+      points: 1,
+      timeLimitSeconds: 60
     },
     {
       subjectCode: 'ENG',
       topicName: 'Grammar',
-      questionText: 'Choose the correct verb: He ___ to school every day.',
-      optionA: 'go',
-      optionB: 'goes',
-      optionC: 'going',
-      optionD: 'gone',
-      correctAnswer: 'B',
-      explanation: 'Subject-verb agreement: third person singular uses "goes"',
+      questionText: 'Choose the correct verb form: The team _____ playing well this season.',
+      optionA: 'is',
+      optionB: 'are',
+      optionC: 'was',
+      optionD: 'were',
+      correctAnswer: 'A',
+      explanation: 'Team is a collective noun treated as singular, so use "is"',
       difficulty: 'MEDIUM',
       year: 2023,
-      examType: 'JAMB'
+      examType: 'JAMB',
+      points: 1,
+      timeLimitSeconds: 45
     },
     {
       subjectCode: 'PHY',
       topicName: 'Mechanics',
-      questionText: 'What is the unit of force?',
-      optionA: 'Joule',
-      optionB: 'Watt',
-      optionC: 'Newton',
-      optionD: 'Pascal',
-      correctAnswer: 'C',
-      explanation: 'Force is measured in Newtons (N)',
+      questionText: 'A car accelerates from rest at 2 m/s². What is its velocity after 5 seconds?',
+      optionA: '8 m/s',
+      optionB: '10 m/s',
+      optionC: '12 m/s',
+      optionD: '15 m/s',
+      correctAnswer: 'B',
+      explanation: 'Using v = u + at: v = 0 + (2)(5) = 10 m/s',
+      difficulty: 'MEDIUM',
+      year: 2024,
+      examType: 'JAMB',
+      points: 2,
+      timeLimitSeconds: 90
+    },
+    {
+      subjectCode: 'CHM',
+      topicName: 'Atomic Structure',
+      questionText: 'What is the atomic number of Carbon?',
+      optionA: '4',
+      optionB: '6',
+      optionC: '8',
+      optionD: '12',
+      correctAnswer: 'B',
+      explanation: 'Carbon has 6 protons, so its atomic number is 6',
       difficulty: 'EASY',
       year: 2024,
-      examType: 'JAMB'
+      examType: 'JAMB',
+      points: 1,
+      timeLimitSeconds: 30
+    },
+    {
+      subjectCode: 'BIO',
+      topicName: 'Cell Biology',
+      questionText: 'Which organelle is responsible for protein synthesis?',
+      optionA: 'Mitochondria',
+      optionB: 'Nucleus',
+      optionC: 'Ribosome',
+      optionD: 'Golgi apparatus',
+      correctAnswer: 'C',
+      explanation: 'Ribosomes are the cellular structures responsible for protein synthesis',
+      difficulty: 'MEDIUM',
+      year: 2023,
+      examType: 'JAMB',
+      points: 1,
+      timeLimitSeconds: 60
     }
   ]
   
@@ -189,27 +264,86 @@ export const downloadTemplate = asyncHandler(async (req: Request, res: Response)
   worksheet['!cols'] = [
     { wch: 12 },  // subjectCode
     { wch: 15 },  // topicName
-    { wch: 50 },  // questionText
-    { wch: 20 },  // optionA
-    { wch: 20 },  // optionB
-    { wch: 20 },  // optionC
-    { wch: 20 },  // optionD
+    { wch: 60 },  // questionText
+    { wch: 25 },  // optionA
+    { wch: 25 },  // optionB
+    { wch: 25 },  // optionC
+    { wch: 25 },  // optionD
     { wch: 15 },  // correctAnswer
-    { wch: 40 },  // explanation
+    { wch: 50 },  // explanation
     { wch: 12 },  // difficulty
     { wch: 8 },   // year
-    { wch: 12 }   // examType
+    { wch: 12 },  // examType
+    { wch: 8 },   // points
+    { wch: 15 }   // timeLimitSeconds
   ]
   
-  // Create workbook and add worksheet
+  // Add header styling and validation info
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+  
+  // Create instructions worksheet
+  const instructionsData = [
+    ['BULK QUESTION IMPORT TEMPLATE'],
+    [''],
+    ['INSTRUCTIONS:'],
+    ['1. Fill in your questions following the format shown in the "Questions" sheet'],
+    ['2. Do not modify the column headers'],
+    ['3. Save the file and upload it to the bulk import page'],
+    [''],
+    ['REQUIRED COLUMNS:'],
+    ['- subjectCode: Subject code (MTH, ENG, PHY, CHM, BIO, etc.)'],
+    ['- questionText: The question text (max 1000 characters)'],
+    ['- optionA, optionB, optionC, optionD: Answer options (max 200 characters each)'],
+    ['- correctAnswer: Must be A, B, C, or D'],
+    ['- difficulty: Must be EASY, MEDIUM, or HARD'],
+    ['- examType: Must be JAMB, WAEC, or NECO'],
+    [''],
+    ['OPTIONAL COLUMNS:'],
+    ['- topicName: Topic within the subject (will be created if not exists)'],
+    ['- explanation: Explanation for the correct answer (max 500 characters)'],
+    ['- year: Year of the question (1990-2025)'],
+    ['- points: Points for the question (1-10, default: 1)'],
+    ['- timeLimitSeconds: Time limit in seconds (10-600, default: 60)'],
+    [''],
+    ['VALIDATION RULES:'],
+    ['- Maximum 1000 questions per file'],
+    ['- File size limit: 10MB'],
+    ['- Duplicate questions will be skipped'],
+    ['- Invalid subject codes will cause errors'],
+    ['- All required fields must be filled'],
+    [''],
+    ['SUBJECT CODES:'],
+    ['MTH - Mathematics'],
+    ['ENG - English Language'],
+    ['PHY - Physics'],
+    ['CHM - Chemistry'],
+    ['BIO - Biology'],
+    ['LIT - Literature in English'],
+    ['GOV - Government'],
+    ['ECO - Economics'],
+    ['GEO - Geography'],
+    ['HIS - History'],
+    ['CRS - Christian Religious Studies'],
+    ['IRS - Islamic Religious Studies'],
+    [''],
+    ['For more help, contact your system administrator.']
+  ]
+  
+  const instructionsWorksheet = XLSX.utils.aoa_to_sheet(instructionsData)
+  
+  // Set column width for instructions
+  instructionsWorksheet['!cols'] = [{ wch: 80 }]
+  
+  // Create workbook and add worksheets
   const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, instructionsWorksheet, 'Instructions')
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Questions')
   
   // Generate Excel file buffer
   const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
   
   // ==========================================
-  // Send file
+  // Send enhanced template file
   // ==========================================
   res.setHeader(
     'Content-Type',
@@ -217,12 +351,12 @@ export const downloadTemplate = asyncHandler(async (req: Request, res: Response)
   )
   res.setHeader(
     'Content-Disposition',
-    'attachment; filename=question_import_template.xlsx'
+    'attachment; filename=enhanced_question_import_template.xlsx'
   )
   
   res.send(buffer)
   
-  logger.info('Template downloaded')
+  logger.info('Enhanced template downloaded')
 })
 
 // ==========================================

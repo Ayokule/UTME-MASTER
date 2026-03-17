@@ -123,7 +123,7 @@ export const getAllLicenses = asyncHandler(async (req: Request, res: Response) =
   const licenses = await prisma.license.findMany({
     include: {
       _count: {
-        select: { licenseActivations: true }
+        select: { activations: true }
       }
     },
     orderBy: { createdAt: 'desc' }
@@ -145,7 +145,7 @@ export const getLicenseDetails = asyncHandler(async (req: Request, res: Response
   const license = await prisma.license.findUnique({
     where: { id },
     include: {
-      licenseActivations: {
+      activations: {
         orderBy: { createdAt: 'desc' }
       }
     }

@@ -15,6 +15,7 @@ import { BadRequestError } from '../utils/errors'
 import { logger } from '../utils/logger'
 import { prisma } from '../config/database'
 import * as XLSX from 'xlsx'
+import { normalizeOptions } from '../services/exam.service'
 
 // ==========================================
 // EXPORT QUESTIONS
@@ -139,32 +140,35 @@ export const exportQuestions = asyncHandler(async (req: Request, res: Response) 
   }
 
   // Transform data for export
-  const exportData = questions.map((question, index) => ({
-    'Row': index + 1,
-    'Subject Code': question.subject?.code || '',
-    'Subject Name': question.subject?.name || '',
-    'Topic': question.topic?.name || '',
-    'Question Text': question.questionText,
-    'Option A': question.optionA,
-    'Option B': question.optionB,
-    'Option C': question.optionC,
-    'Option D': question.optionD,
-    'Correct Answer': question.correctAnswer,
-    'Explanation': question.explanation || '',
-    'Difficulty': question.difficulty,
-    'Year': question.year || '',
-    'Exam Type': question.examType,
-    'Points': question.points || 1,
-    'Time Limit (seconds)': question.timeLimitSeconds || '',
-    'Image URL': question.imageUrl || '',
-    'Audio URL': question.audioUrl || '',
-    'Video URL': question.videoUrl || '',
-    'Created By': question.creator 
-      ? `${question.creator.firstName} ${question.creator.lastName}`.trim()
-      : '',
-    'Created Date': question.createdAt.toISOString().split('T')[0],
-    'Last Updated': question.updatedAt.toISOString().split('T')[0]
-  }))
+  const exportData = questions.map((question, index) => {
+    const normalizedOptions = normalizeOptions(question)
+    
+    return {
+      'Row': index + 1,
+      'Subject Code': question.subject?.code || '',
+      'Subject Name': question.subject?.name || '',
+      'Topic': question.topic?.name || '',
+      'Question Text': question.questionText,
+      'Option A': normalizedOptions[0]?.text || '',
+      'Option B': normalizedOptions[1]?.text || '',
+      'Option C': normalizedOptions[2]?.text || '',
+      'Option D': normalizedOptions[3]?.text || '',
+      'Correct Answer': question.correctAnswer,
+      'Explanation': question.explanation || '',
+      'Difficulty': question.difficulty,
+      'Year': question.year || '',
+      'Exam Type': question.examType,
+      'Points': question.points || 1,
+      'Time Limit (seconds)': question.timeLimitSeconds || '',
+      'Audio URL': question.audioUrl || '',
+      'Video URL': question.videoUrl || '',
+      'Created By': question.creator 
+        ? `${question.creator.firstName} ${question.creator.lastName}`.trim()
+        : '',
+      'Created Date': question.createdAt.toISOString().split('T')[0],
+      'Last Updated': question.updatedAt.toISOString().split('T')[0]
+    }
+  })
 
   logger.info(`Exporting ${questions.length} questions as ${format}`)
 

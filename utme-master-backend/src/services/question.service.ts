@@ -128,25 +128,29 @@ export async function getQuestions(query: QueryQuestionsInput) {
   // FORMAT RESPONSE
   // ==========================================
   // Transform database results to API response format
-  const formattedQuestions = questions.map((q: any) => ({
-    id: q.id,
-    subjectId: q.subjectId,
-    subject: q.subject.name,
-    topicId: q.topicId,
-    topic: q.topic?.name,
-    questionText: q.questionText,
-    optionA: q.optionA,
-    optionB: q.optionB,
-    optionC: q.optionC,
-    optionD: q.optionD,
-    correctAnswer: q.correctAnswer,
-    explanation: q.explanation,
-    difficulty: q.difficulty,
-    year: q.year,
-    examType: q.examType,
-    imageUrl: q.imageUrl,
-    createdAt: q.createdAt
-  }))
+  // Convert JSON options to separate fields for frontend compatibility
+  const formattedQuestions = questions.map((q: any) => {
+    const optionsObj = q.options as any || {}
+    return {
+      id: q.id,
+      subjectId: q.subjectId,
+      subject: q.subject.name,
+      topicId: q.topicId,
+      topic: q.topic?.name,
+      questionText: q.questionText,
+      // Convert JSON options to separate fields
+      optionA: optionsObj.A?.text || '',
+      optionB: optionsObj.B?.text || '',
+      optionC: optionsObj.C?.text || '',
+      optionD: optionsObj.D?.text || '',
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation,
+      difficulty: q.difficulty,
+      year: q.year,
+      examType: q.examType,
+      createdAt: q.createdAt
+    }
+  })
   
   // ==========================================
   // RETURN RESULTS + PAGINATION
@@ -196,6 +200,7 @@ export async function getQuestionById(id: string) {
   }
   
   // Format response
+  const optionsObj = question.options as any || {}
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -203,16 +208,16 @@ export async function getQuestionById(id: string) {
     topicId: question.topicId,
     topic: question.topic?.name,
     questionText: question.questionText,
-    optionA: question.optionA,
-    optionB: question.optionB,
-    optionC: question.optionC,
-    optionD: question.optionD,
+    // Convert JSON options to separate fields
+    optionA: optionsObj.A?.text || '',
+    optionB: optionsObj.B?.text || '',
+    optionC: optionsObj.C?.text || '',
+    optionD: optionsObj.D?.text || '',
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
     year: question.year,
     examType: question.examType,
-    imageUrl: question.imageUrl,
     createdAt: question.createdAt,
     updatedAt: question.updatedAt
   }
@@ -221,7 +226,7 @@ export async function getQuestionById(id: string) {
 // ==========================================
 // CREATE NEW QUESTION
 // ==========================================
-export async function createQuestion(data: CreateQuestionInput) {
+export async function createQuestion(data: CreateQuestionInput, userId: string) {
   // ==========================================
   // STEP 1: Validate subject exists
   // ==========================================
@@ -259,24 +264,20 @@ export async function createQuestion(data: CreateQuestionInput) {
       subjectId: data.subjectId,
       topicId: data.topicId || null,
       questionText: data.questionText,
-      options: [
-        { label: 'A', text: data.optionA, isCorrect: data.correctAnswer === 'A' },
-        { label: 'B', text: data.optionB, isCorrect: data.correctAnswer === 'B' },
-        { label: 'C', text: data.optionC, isCorrect: data.correctAnswer === 'C' },
-        { label: 'D', text: data.optionD, isCorrect: data.correctAnswer === 'D' }
-      ],
-      optionA: data.optionA,
-      optionB: data.optionB,
-      optionC: data.optionC,
-      optionD: data.optionD,
+      // Store options as JSON
+      options: {
+        A: { text: data.optionA },
+        B: { text: data.optionB },
+        C: { text: data.optionC },
+        D: { text: data.optionD }
+      },
       correctAnswer: data.correctAnswer,
       explanation: data.explanation || null,
       difficulty: data.difficulty,
       year: data.year || null,
       examType: data.examType,
-      imageUrl: data.imageUrl || null,
       isActive: true,
-      createdBy: 'system' // TODO: Use actual user ID from auth
+      createdBy: userId // Use actual user ID from auth
     },
     include: {
       subject: {
@@ -300,6 +301,7 @@ export async function createQuestion(data: CreateQuestionInput) {
   // ==========================================
   // STEP 4: Return formatted question
   // ==========================================
+  const optionsObj = question.options as any || {}
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -307,16 +309,16 @@ export async function createQuestion(data: CreateQuestionInput) {
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    optionA: question.optionA,
-    optionB: question.optionB,
-    optionC: question.optionC,
-    optionD: question.optionD,
+    // Convert JSON options to separate fields
+    optionA: optionsObj.A?.text || '',
+    optionB: optionsObj.B?.text || '',
+    optionC: optionsObj.C?.text || '',
+    optionD: optionsObj.D?.text || '',
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
     year: question.year,
     examType: question.examType,
-    imageUrl: question.imageUrl,
     createdAt: question.createdAt
   }
 }
@@ -373,22 +375,20 @@ export async function updateQuestion(id: string, data: UpdateQuestionInput) {
       subjectId: data.subjectId,
       topicId: data.topicId || null,
       questionText: data.questionText,
-      options: data.optionA ? [
-        { label: 'A', text: data.optionA, isCorrect: data.correctAnswer === 'A' },
-        { label: 'B', text: data.optionB, isCorrect: data.correctAnswer === 'B' },
-        { label: 'C', text: data.optionC, isCorrect: data.correctAnswer === 'C' },
-        { label: 'D', text: data.optionD, isCorrect: data.correctAnswer === 'D' }
-      ] : undefined,
-      optionA: data.optionA,
-      optionB: data.optionB,
-      optionC: data.optionC,
-      optionD: data.optionD,
+      // Update options as JSON if provided
+      ...(data.optionA && {
+        options: {
+          A: { text: data.optionA },
+          B: { text: data.optionB },
+          C: { text: data.optionC },
+          D: { text: data.optionD }
+        }
+      }),
       correctAnswer: data.correctAnswer,
       explanation: data.explanation || null,
       difficulty: data.difficulty,
       year: data.year || null,
-      examType: data.examType,
-      imageUrl: data.imageUrl || null
+      examType: data.examType
     },
     include: {
       subject: {
@@ -412,6 +412,7 @@ export async function updateQuestion(id: string, data: UpdateQuestionInput) {
   // ==========================================
   // STEP 5: Return formatted question
   // ==========================================
+  const optionsObj = question.options as any || {}
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -419,16 +420,16 @@ export async function updateQuestion(id: string, data: UpdateQuestionInput) {
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    optionA: question.optionA,
-    optionB: question.optionB,
-    optionC: question.optionC,
-    optionD: question.optionD,
+    // Convert JSON options to separate fields
+    optionA: optionsObj.A?.text || '',
+    optionB: optionsObj.B?.text || '',
+    optionC: optionsObj.C?.text || '',
+    optionD: optionsObj.D?.text || '',
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
     year: question.year,
     examType: question.examType,
-    imageUrl: question.imageUrl,
     createdAt: question.createdAt,
     updatedAt: question.updatedAt
   }

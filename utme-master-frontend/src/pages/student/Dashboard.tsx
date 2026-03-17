@@ -17,7 +17,9 @@ import {
   Star,
   ArrowRight,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  BarChart3
 } from 'lucide-react'
 import Layout from '../../components/Layout'
 import StatCard from '../../components/dashboard/StatCard'
@@ -29,9 +31,10 @@ import PremiumUpgrade from '../../components/dashboard/PremiumUpgrade'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import SafePageWrapper from '../../components/SafePageWrapper'
+import BlankPageDetector from '../../components/BlankPageDetector'
 import { useAuthStore } from '../../store/auth'
 import { getDashboardData } from '../../api/dashboard.js'
-import { getSubjects } from '../../api/subjects'
 import { DashboardData } from '../../types/dashboard'
 import { showToast } from '../../components/ui/Toast'
 
@@ -150,15 +153,11 @@ export default function Dashboard() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [subjects, setSubjects] = useState<ExamCard[]>([])
-  const [subjectsLoading, setSubjectsLoading] = useState(true)
-  const [subjectsError, setSubjectsError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadDashboardData()
-    loadSubjects()
   }, [])
 
   const loadDashboardData = async () => {
@@ -166,15 +165,27 @@ export default function Dashboard() {
       setLoading(true)
       setError(null)
       
-      console.log('Loading dashboard data...')
+      console.log('🔄 [DASHBOARD] Loading dashboard data from /analytics/student/dashboard...')
       const data = await getDashboardData()
-      console.log('Dashboard data received:', data)
+      console.log('✅ [DASHBOARD] Dashboard data received successfully:', {
+        totalTests: data.stats?.total_tests,
+        averageScore: data.stats?.average_score,
+        subjects: data.subject_performance?.length,
+        recentActivity: data.recent_activity?.length
+      })
       
       setDashboardData(data)
     } catch (err: any) {
-      console.error('Dashboard error:', err)
+      console.error('❌ [DASHBOARD] API Error Details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        endpoint: '/analytics/student/dashboard',
+        errorData: err.response?.data,
+        fullError: err
+      })
       setError(err.message || 'Failed to load dashboard data')
-      showToast.error('Failed to load dashboard data')
+      showToast.error('⚠️ Dashboard API failed - showing sample data')
       
       // Fallback to mock data if API fails
       const mockData: DashboardData = {
@@ -241,122 +252,6 @@ export default function Dashboard() {
     }
   }
 
-  const loadSubjects = async () => {
-    try {
-      setSubjectsLoading(true)
-      setSubjectsError(null)
-      
-      console.log('Loading subjects for dashboard...')
-      const response = await getSubjects()
-      
-      if (response.success && response.data?.subjects) {
-        // Transform subjects into exam-like format for dashboard display
-        const examCards: ExamCard[] = response.data.subjects.map((subject: any) => ({
-          id: subject.id,
-          title: `${subject.name} Practice Test`,
-          subjects: [subject.name],
-          duration: 60,
-          questions: subject.questionCount || 40,
-          difficulty: 'Medium',
-          type: 'practice',
-          participants: Math.floor(Math.random() * 1000) + 100,
-          averageScore: Math.floor(Math.random() * 30) + 60,
-          subjectCode: subject.code,
-          subjectName: subject.name
-        }))
-        
-        console.log('Subjects loaded successfully:', {
-          count: examCards.length,
-          subjects: examCards.map(e => ({ name: e.subjectName, questions: e.questions }))
-        })
-        
-        setSubjects(examCards)
-      } else {
-        throw new Error('Invalid subjects response')
-      }
-    } catch (err: any) {
-      console.error('Subjects loading error:', {
-        message: err.message,
-        response: err.response?.data
-      })
-      setSubjectsError(err.message || 'Failed to load subjects')
-      
-      // Fallback to mock data
-      const mockSubjects: ExamCard[] = [
-        {
-          id: '1',
-          title: 'Mathematics Practice Test',
-          subjects: ['Mathematics'],
-          duration: 60,
-          questions: 40,
-          difficulty: 'Hard',
-          type: 'practice',
-          participants: 1250,
-          averageScore: 68,
-          subjectCode: 'MTH',
-          subjectName: 'Mathematics'
-        },
-        {
-          id: '2',
-          title: 'English Language Practice Test',
-          subjects: ['English Language'],
-          duration: 60,
-          questions: 40,
-          difficulty: 'Medium',
-          type: 'practice',
-          participants: 980,
-          averageScore: 75,
-          subjectCode: 'ENG',
-          subjectName: 'English Language'
-        },
-        {
-          id: '3',
-          title: 'Physics Practice Test',
-          subjects: ['Physics'],
-          duration: 60,
-          questions: 40,
-          difficulty: 'Hard',
-          type: 'practice',
-          participants: 850,
-          averageScore: 62,
-          subjectCode: 'PHY',
-          subjectName: 'Physics'
-        },
-        {
-          id: '4',
-          title: 'Chemistry Practice Test',
-          subjects: ['Chemistry'],
-          duration: 60,
-          questions: 40,
-          difficulty: 'Medium',
-          type: 'practice',
-          participants: 920,
-          averageScore: 71,
-          subjectCode: 'CHM',
-          subjectName: 'Chemistry'
-        },
-        {
-          id: '5',
-          title: 'Biology Practice Test',
-          subjects: ['Biology'],
-          duration: 60,
-          questions: 40,
-          difficulty: 'Easy',
-          type: 'practice',
-          participants: 780,
-          averageScore: 78,
-          subjectCode: 'BIO',
-          subjectName: 'Biology'
-        }
-      ]
-      
-      setSubjects(mockSubjects)
-      console.log('Using fallback subjects data')
-    } finally {
-      setSubjectsLoading(false)
-    }
-  }
-
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -376,25 +271,6 @@ export default function Dashboard() {
 
   const handleUpgrade = () => {
     showToast.success('Redirecting to upgrade page...')
-  }
-
-  const handleStartExam = (exam: ExamCard) => {
-    console.log('Starting exam:', exam)
-    
-    // Navigate to subject selection with pre-selected subject
-    if (exam.subjectName) {
-      navigate('/student/subjects', { 
-        state: { 
-          preSelectedSubject: exam.subjectName,
-          examType: exam.type || 'practice'
-        } 
-      })
-    } else {
-      // Fallback to general subject selection
-      navigate('/student/subjects')
-    }
-    
-    showToast.success(`Redirecting to ${exam.title}...`)
   }
 
   if (loading) {
@@ -542,17 +418,28 @@ export default function Dashboard() {
 
   const { 
     student = { name: 'Student', streak_days: 0, license_tier: 'TRIAL' }, 
-    stats = { total_tests: 0, average_score: 0, best_score: 0, hours_studied: 0 }
+    stats = { total_tests: 0, average_score: 0, best_score: 0, hours_studied: 0 },
+    subject_performance = [],
+    progress = [],
+    recent_activity = [],
+    strengths = [],
+    weaknesses = [],
+    quote_of_day = ''
   } = dashboardData || {}
 
   return (
-    <Layout>
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-      >
+    <SafePageWrapper pageName="Student Dashboard">
+      <Layout>
+        <BlankPageDetector 
+          pageName="Student Dashboard" 
+          hasContent={!!dashboardData && Object.keys(dashboardData).length > 0}
+        />
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        >
         {/* Welcome Header */}
         <motion.div
           variants={headerVariants}
@@ -637,7 +524,7 @@ export default function Dashboard() {
                 >
                   <p className="text-sm text-primary-100 mb-1">Quote of the Day</p>
                   <p className="text-sm font-medium italic">
-                    "{dashboardData.quote_of_day || getRandomQuote()}"
+                    "{quote_of_day || getRandomQuote()}"
                   </p>
                 </motion.div>
               </motion.div>
@@ -692,11 +579,78 @@ export default function Dashboard() {
           className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8"
         >
           <motion.div variants={cardVariants} whileHover="hover">
-            <SubjectPerformanceChart data={dashboardData?.subject_performance || []} />
+            <SubjectPerformanceChart data={subject_performance || []} />
           </motion.div>
           <motion.div variants={cardVariants} whileHover="hover">
-            <ProgressChart data={dashboardData?.progress || []} />
+            <ProgressChart data={progress || []} />
           </motion.div>
+        </motion.div>
+
+        {/* Dashboard Navigation */}
+        <motion.div variants={itemVariants} className="mb-8">
+          <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Performance Analytics</h2>
+                <p className="text-gray-600">View detailed dashboards for official exams and practice tests</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Official Exams Dashboard */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="bg-white rounded-xl p-6 border-2 border-blue-200 shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <BookOpen className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Official Exams</h3>
+                    <p className="text-sm text-gray-600">JAMB & Mock Exams</p>
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  Track your performance on official exams with detailed analytics, subject breakdown, and progress trends.
+                </p>
+                <Link to="/student/exam-dashboard">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2">
+                    View Dashboard
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </motion.div>
+
+              {/* Practice Tests Dashboard */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="bg-white rounded-xl p-6 border-2 border-orange-200 shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-orange-100 rounded-lg">
+                    <Zap className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Practice Tests</h3>
+                    <p className="text-sm text-gray-600">Subject Practice & Drills</p>
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  Monitor your practice progress with improvement trends, strong areas, and topics that need more work.
+                </p>
+                <Link to="/student/test-dashboard">
+                  <Button className="w-full bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2">
+                    View Dashboard
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </motion.div>
+            </div>
+          </Card>
         </motion.div>
 
         {/* Quick Exam Access */}
@@ -709,133 +663,62 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Quick Start</h2>
-                  <p className="text-gray-600">Jump into practice tests and exams</p>
+                  <p className="text-gray-600">Jump into exams and practice tests</p>
                 </div>
               </div>
-              <Link to="/student/subjects">
-                <Button variant="outline" className="flex items-center gap-2">
-                  View All <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
             </div>
 
-            {/* Error Message for Subjects */}
-            <AnimatePresence>
-              {subjectsError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3"
-                >
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* All Exams Card */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 shadow-md hover:shadow-lg transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-blue-500 rounded-lg">
+                    <BookOpen className="w-6 h-6 text-white" />
+                  </div>
                   <div>
-                    <p className="text-yellow-700 text-sm font-medium">
-                      Unable to load latest exam data
-                    </p>
-                    <p className="text-yellow-600 text-xs mt-1">
-                      {subjectsError}. Showing sample data.
-                    </p>
+                    <h3 className="text-lg font-bold text-gray-900">All Exams</h3>
+                    <p className="text-sm text-gray-600">Official & Practice</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadSubjects}
-                    className="ml-auto text-yellow-700 border-yellow-300 hover:bg-yellow-100"
-                  >
-                    Retry
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  Browse and start official exams or practice tests. Track your progress and improve your scores.
+                </p>
+                <Link to="/student/exams">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2">
+                    View All Exams
+                    <ArrowRight className="w-4 h-4" />
                   </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </Link>
+              </motion.div>
 
-            {/* Loading State */}
-            {subjectsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-gray-100 rounded-xl p-4 animate-pulse"
-                  >
-                    <div className="h-4 bg-gray-200 rounded mb-3"></div>
-                    <div className="h-3 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded mb-4"></div>
-                    <div className="h-8 bg-gray-200 rounded"></div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {subjects.map((exam, index) => (
-                <motion.div
-                  key={exam.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge 
-                      variant={exam.type === 'mock' ? 'error' : exam.type === 'speed' ? 'warning' : 'primary'}
-                      size="sm"
-                    >
-                      {exam.type.toUpperCase()}
-                    </Badge>
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <Users className="w-3 h-3" />
-                      {exam.participants}
-                    </div>
+              {/* Exam Dashboard Card */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-6 shadow-md hover:shadow-lg transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-purple-500 rounded-lg">
+                    <BarChart3 className="w-6 h-6 text-white" />
                   </div>
-
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                    {exam.title}
-                  </h3>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Questions:</span>
-                      <span className="font-medium">{exam.questions}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Duration:</span>
-                      <span className="font-medium">{exam.duration}min</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Avg Score:</span>
-                      <span className="font-medium text-green-600">{exam.averageScore}%</span>
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Exam Analytics</h3>
+                    <p className="text-sm text-gray-600">Performance & Insights</p>
                   </div>
-
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {(exam.subjects || []).slice(0, 2).map((subject: string) => (
-                      <span
-                        key={subject}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                      >
-                        {subject}
-                      </span>
-                    ))}
-                    {(exam.subjects || []).length > 2 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                        +{(exam.subjects || []).length - 2}
-                      </span>
-                    )}
-                  </div>
-
-                  <Button 
-                    className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-700 hover:to-secondary-700"
-                    onClick={() => handleStartExam(exam)}
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Exam
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  View your official exam performance, scores, pass rates, and detailed analytics in one place.
+                </p>
+                <Link to="/student/exam-dashboard">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center gap-2">
+                    View Analytics
+                    <ArrowRight className="w-4 h-4" />
                   </Button>
-                </motion.div>
-              ))}
+                </Link>
+              </motion.div>
             </div>
-            )}
           </Card>
         </motion.div>
 
@@ -959,14 +842,14 @@ export default function Dashboard() {
 
         {/* Recent Activity */}
         <motion.div variants={itemVariants} className="mb-8">
-          <RecentActivity activities={dashboardData?.recent_activity || []} />
+          <RecentActivity activities={recent_activity || []} />
         </motion.div>
 
         {/* Strengths & Weaknesses */}
         <motion.div variants={itemVariants} className="mb-8">
           <StrengthsWeaknesses
-            strengths={dashboardData?.strengths || []}
-            weaknesses={dashboardData?.weaknesses || []}
+            strengths={strengths || []}
+            weaknesses={weaknesses || []}
             onSubjectClick={handleSubjectClick}
           />
         </motion.div>
@@ -1104,6 +987,7 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
       </motion.div>
-    </Layout>
+      </Layout>
+    </SafePageWrapper>
   )
 }

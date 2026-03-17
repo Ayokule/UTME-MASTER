@@ -7,11 +7,17 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { useAuthStore } from '../../store/auth'
 import { showToast } from '../../components/ui/Toast'
+import { changePassword } from '../../api/auth'
 
 export default function ProfileSettings() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: false,
@@ -66,6 +72,96 @@ export default function ProfileSettings() {
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Password Change */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.0 }}
+          >
+            <Card className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary-600" />
+                Change Password
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    placeholder="Enter your current password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    placeholder="Enter your new password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    placeholder="Confirm your new password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+                      showToast.error('Please fill in all password fields')
+                      return
+                    }
+                    if (passwordData.newPassword !== passwordData.confirmPassword) {
+                      showToast.error('New passwords do not match')
+                      return
+                    }
+                    if (passwordData.newPassword.length < 8) {
+                      showToast.error('Password must be at least 8 characters')
+                      return
+                    }
+                    
+                    setLoading(true)
+                    try {
+                      // Call API to change password
+                      await changePassword({
+                        currentPassword: passwordData.currentPassword,
+                        newPassword: passwordData.newPassword,
+                        confirmPassword: passwordData.confirmPassword
+                      })
+                      showToast.success('Password changed successfully!')
+                      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                    } catch (error: any) {
+                      // Handle specific error messages from API
+                      const errorMessage = error.response?.data?.message || error.message || 'Failed to change password'
+                      showToast.error(errorMessage)
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-primary-600 to-secondary-600"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {loading ? 'Updating...' : 'Update Password'}
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+
           {/* Notifications */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

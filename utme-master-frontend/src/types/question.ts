@@ -9,7 +9,7 @@ export interface Question {
   optionD: string
   correctAnswer: 'A' | 'B' | 'C' | 'D'
   explanation?: string
-  difficulty: 'Easy' | 'Medium' | 'Hard'
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   year?: number
   examType: 'JAMB' | 'WAEC' | 'NECO'
   imageUrl?: string
@@ -20,7 +20,7 @@ export interface Question {
 export interface QuestionFilters {
   subjects: string[]
   topics: string[]
-  difficulty?: 'Easy' | 'Medium' | 'Hard'
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD'
   yearFrom?: number
   yearTo?: number
   examType?: 'JAMB' | 'WAEC' | 'NECO'
@@ -45,7 +45,7 @@ export interface CreateQuestionData {
   optionD: string
   correctAnswer: 'A' | 'B' | 'C' | 'D'
   explanation?: string
-  difficulty: 'Easy' | 'Medium' | 'Hard'
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   year?: number
   examType: 'JAMB' | 'WAEC' | 'NECO'
   imageUrl?: string
@@ -65,7 +65,7 @@ export interface BulkImportRow {
   'Option D': string
   'Correct Answer': 'A' | 'B' | 'C' | 'D'
   Explanation?: string
-  Difficulty: 'Easy' | 'Medium' | 'Hard'
+  Difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   Year?: number
   'Exam Type': 'JAMB' | 'WAEC' | 'NECO'
   'Image URL'?: string

@@ -80,11 +80,11 @@ export default function NotFound() {
           </Button>
 
           <Button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/student/dashboard')}
             className="w-full bg-gradient-to-r from-primary-600 to-secondary-600"
           >
             <Home className="w-4 h-4 mr-2" />
-            Go to Home
+            Go to Dashboard
           </Button>
         </motion.div>
 

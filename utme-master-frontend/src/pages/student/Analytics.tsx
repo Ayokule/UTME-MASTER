@@ -18,15 +18,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp,
-  TrendingDown,
   Award,
   Target,
-  Clock,
   BookOpen,
-  Brain,
   AlertCircle,
   BarChart3,
-  PieChart as PieChartIcon
+  ArrowLeft,
+  Eye
 } from 'lucide-react'
 import {
   LineChart,
@@ -157,10 +155,17 @@ export default function StudentAnalytics() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Performance Analytics</h1>
-          <p className="text-gray-600">Track your progress and identify areas for improvement</p>
+        {/* Header with Back Button */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-4 mb-2">
+              <button onClick={() => navigate('/student/dashboard')} className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-4xl font-bold text-gray-900">Performance Analytics</h1>
+            </div>
+            <p className="text-gray-600 ml-14">Track your progress and identify areas for improvement</p>
+          </div>
         </div>
         
         {/* Tab Navigation */}
@@ -425,7 +430,7 @@ export default function StudentAnalytics() {
                         outerRadius={100}
                         label={({ subject, percentage }) => `${subject}: ${percentage}%`}
                       >
-                        {stats.subjectPerformance.map((entry, index) => (
+                        {stats.subjectPerformance.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -504,11 +509,10 @@ export default function StudentAnalytics() {
               <h2 className="text-2xl font-bold mb-6">Recent Exam History</h2>
               
               <div className="space-y-4">
-                {stats.recentExams.map((exam, idx) => (
+                {stats.recentExams.slice(0, 5).map((exam, idx) => (
                   <div 
                     key={idx}
-                    className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/student/exams/${exam.id}/results`)}
+                    className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors"
                   >
                     <div className="flex-1">
                       <h3 className="font-bold text-gray-900">{exam.examTitle}</h3>
@@ -533,10 +537,27 @@ export default function StudentAnalytics() {
                       }`}>
                         {exam.grade}
                       </div>
+
+                      <button
+                        onClick={() => navigate(`/student/exam-review/${exam.id}`)}
+                        className="p-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg"
+                        title="Review answers"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {stats.recentExams.length > 5 && (
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className="w-full mt-6 px-6 py-3 border-2 border-primary-600 text-primary-600 rounded-xl font-semibold hover:bg-primary-50"
+                >
+                  View More Exams
+                </button>
+              )}
             </div>
           </>
         )}

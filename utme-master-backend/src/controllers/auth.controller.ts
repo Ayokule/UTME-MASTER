@@ -1,58 +1,21 @@
 // ==========================================
-// AUTHENTICATION CONTROLLER
+// AUTHENTICATION CONTROLLER - FIXED VERSION
 // ==========================================
 // This file handles HTTP requests for authentication
-//
-// What is a controller?
-// - Receives HTTP requests from routes
-// - Validates request data
-// - Calls service layer (business logic)
-// - Sends HTTP response back to client
-//
-// Think of it like a waiter in a restaurant:
-// - Takes orders (requests) from customers
-// - Tells kitchen (service) what to make
-// - Brings food (response) back to customers
-//
-// Controller does NOT contain business logic!
-// It just handles HTTP stuff (request/response)
-// Business logic is in services
+// Unused imports removed, clean and error-free
 
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response } from 'express'
 import * as authService from '../services/auth.service'
 import { asyncHandler } from '../middleware/error.middleware'
 import { logger } from '../utils/logger'
+import { ensureAuthenticated } from '../utils/errorStandardization'
 
 // ==========================================
 // REGISTER NEW USER
 // ==========================================
-// POST /api/auth/register
-//
-// Request body:
-// {
-//   email: string,
-//   password: string,
-//   firstName: string,
-//   lastName: string,
-//   phone?: string
-// }
-//
-// Response:
-// {
-//   success: true,
-//   data: {
-//     user: { ... },
-//     accessToken: "eyJhbGc...",
-//     refreshToken: "eyJhbGc..."
-//   }
-// }
-
 export const register = asyncHandler(async (req: Request, res: Response) => {
-  // Call service to register user
-  // Service does all the work (check duplicate, hash password, create user, etc.)
   const result = await authService.registerUser(req.body)
   
-  // Send success response with token field (not accessToken)
   res.status(201).json({
     success: true,
     message: 'User registered successfully',
@@ -67,29 +30,9 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 // ==========================================
 // LOGIN USER
 // ==========================================
-// POST /api/auth/login
-//
-// Request body:
-// {
-//   email: string,    // Email or phone number
-//   password: string
-// }
-//
-// Response:
-// {
-//   success: true,
-//   data: {
-//     user: { ... },
-//     accessToken: "eyJhbGc...",
-//     refreshToken: "eyJhbGc..."
-//   }
-// }
-
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  // Call service to login user
   const result = await authService.loginUser(req.body)
   
-  // Send success response with token field (not accessToken)
   res.status(200).json({
     success: true,
     message: 'Login successful',
@@ -104,25 +47,9 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 // ==========================================
 // REFRESH TOKEN
 // ==========================================
-// POST /api/auth/refresh
-//
-// Request body:
-// {
-//   refreshToken: string
-// }
-//
-// Response:
-// {
-//   success: true,
-//   data: {
-//     accessToken: "eyJhbGc..."
-//   }
-// }
-
 export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
   const { refreshToken } = req.body
   
-  // Get new access token
   const result = await authService.refreshAccessToken(refreshToken)
   
   res.status(200).json({
@@ -135,24 +62,9 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 // ==========================================
 // GET CURRENT USER
 // ==========================================
-// GET /api/auth/me
-// Requires authentication (user must be logged in)
-//
-// Response:
-// {
-//   success: true,
-//   data: { user: {...} }
-// }
-
 export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
-  // req.user is set by authenticate middleware
-  // It contains: { id, email, role, licenseTier }
+  ensureAuthenticated(req.user)
   
-  if (!req.user) {
-    throw new Error('User not authenticated')
-  }
-  
-  // Get full user data from database
   const user = await authService.getCurrentUser(req.user.id)
   
   res.status(200).json({
@@ -164,20 +76,8 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response) =
 // ==========================================
 // UPDATE PROFILE
 // ==========================================
-// PUT /api/auth/profile
-// Requires authentication
-//
-// Request body:
-// {
-//   firstName?: string,
-//   lastName?: string,
-//   phone?: string
-// }
-
 export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new Error('User not authenticated')
-  }
+  ensureAuthenticated(req.user)
   
   const user = await authService.updateProfile(req.user.id, req.body)
   
@@ -191,20 +91,8 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 // ==========================================
 // CHANGE PASSWORD
 // ==========================================
-// POST /api/auth/change-password
-// Requires authentication
-//
-// Request body:
-// {
-//   currentPassword: string,
-//   newPassword: string,
-//   confirmPassword: string
-// }
-
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw new Error('User not authenticated')
-  }
+  ensureAuthenticated(req.user)
   
   const { currentPassword, newPassword } = req.body
   
@@ -219,15 +107,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 // ==========================================
 // LOGOUT
 // ==========================================
-// POST /api/auth/logout
-// Requires authentication
-//
-// Note: With JWT, logout is handled on client side
-// Client just deletes the tokens
-// Server doesn't need to do anything
-
 export const logout = asyncHandler(async (req: Request, res: Response) => {
-  // Log the logout (optional, for analytics)
   if (req.user) {
     logger.info(`User logged out: ${req.user.email}`)
   }
@@ -239,34 +119,43 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 })
 
 // ==========================================
-// HOW CONTROLLERS WORK
+// REQUEST PASSWORD RESET
 // ==========================================
-//
-// Request flow:
-// 1. Client sends HTTP request
-//    POST /api/auth/register
-//    Body: { email: "test@example.com", password: "password123", ... }
-//
-// 2. Express receives request
-//
-// 3. Middleware runs (CORS, body parser, validation)
-//
-// 4. Route handler calls controller
-//    router.post('/register', validateBody(registerSchema), register)
-//
-// 5. Controller calls service
-//    const result = await authService.registerUser(req.body)
-//
-// 6. Service does business logic
-//    - Check if user exists
-//    - Hash password
-//    - Create user in database
-//    - Generate tokens
-//
-// 7. Service returns result to controller
-//
-// 8. Controller sends HTTP response
-//    res.status(201).json({ success: true, data: result })
-//
-// 9. Client receives response
-//    { success: true, data: { user: {...}, accessToken: "...", refreshToken: "..." } }
+export const requestPasswordReset = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body
+  
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      error: { message: 'Email is required' }
+    })
+  }
+  
+  const result = await authService.requestPasswordReset(email)
+  
+  res.status(200).json({
+    success: true,
+    message: result.message
+  })
+})
+
+// ==========================================
+// RESET PASSWORD
+// ==========================================
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body
+  
+  if (!token || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: { message: 'Token and new password are required' }
+    })
+  }
+  
+  const result = await authService.resetPassword(token, newPassword)
+  
+  res.status(200).json({
+    success: true,
+    message: result.message
+  })
+})

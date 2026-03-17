@@ -24,6 +24,9 @@ dotenv.config()
 // Core Express framework
 import express, { Application, Request, Response, } from 'express'
 
+// HTTP server for WebSocket integration
+import { createServer } from 'http'
+
 // CORS: Allows frontend to connect from different domain
 // Without this, browser blocks requests from localhost:5173 to localhost:3000
 import cors from 'cors'
@@ -45,6 +48,15 @@ import { logger } from './utils/logger'
 // Our error handler middleware
 import { errorHandler } from './middleware/error.middleware'
 
+// Security middleware
+import { 
+  generalRateLimit, 
+  speedLimiter, 
+  securityHeaders,
+  inputSanitization,
+  sqlInjectionProtection
+} from './middleware/security.middleware'
+
 // Import routes (API endpoints)
 import authRoutes from './routes/auth.routes'
 import questionRoutes from './routes/question.routes'
@@ -56,13 +68,25 @@ import importRoutes from './routes/import.routes'
 import exportRoutes from './routes/export.routes'
 import licenseRoutes from './routes/license.routes'
 import dashboardRoutes from './routes/dashboard.routes'
+import studentDashboardRoutes from './routes/student-dashboard.routes'
 import resultsRoutes from './routes/results.routes'
 import errorRoutes from './routes/error.routes'
 import adminRoutes from './routes/admin.routes'
+import settingsRoutes from './routes/settings.routes'
+import emailRoutes from './routes/email.routes'
+import progressRoutes from './routes/progress.routes'
+import healthRoutes from './routes/health.routes'
+import notificationRoutes from './routes/notification.routes'
 
 
 // Database connection
 import { prisma } from './config/database'
+
+// Scheduler service
+import { startScheduler, stopScheduler } from './services/scheduler.service'
+
+// WebSocket service
+import webSocketService from './services/websocket.service'
 
 // ==========================================
 // CREATE EXPRESS APPLICATION
@@ -70,6 +94,9 @@ import { prisma } from './config/database'
 // Think of app as our restaurant
 // It receives orders (requests) and serves food (responses)
 const app: Application = express()
+
+// Create HTTP server for WebSocket integration
+const server = createServer(app)
 
 // Get port from environment or use 3000
 // process.env.PORT comes from .env file
@@ -80,6 +107,9 @@ const PORT = process.env.PORT || 3000
 // SECURITY MIDDLEWARE
 // ==========================================
 // These run on EVERY request to protect our API
+
+// Security headers
+app.use(securityHeaders)
 
 // Helmet: Sets security HTTP headers
 // Prevents common attacks like XSS, clickjacking, etc.
@@ -99,7 +129,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   
   // Which headers frontend can send
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }))
 
 // ==========================================
@@ -144,23 +174,20 @@ if (process.env.NODE_ENV === 'development') {
 // Prevent abuse: limit requests per IP address
 // If someone sends 100+ requests in 15 minutes, block them
 
-const limiter = rateLimit({
-  // Time window: 15 minutes
-  windowMs: 15 * 60 * 1000,
-  
-  // Max requests per window
-  max: 100,
-  
-  // Message when limit exceeded
-  message: 'Too many requests from this IP, please try again later',
-  
-  // Headers to send with response
-  standardHeaders: true,  // Return rate limit info in RateLimit-* headers
-  legacyHeaders: false    // Disable X-RateLimit-* headers
-})
+// Apply general rate limiting to all routes
+app.use(generalRateLimit)
 
-// Apply rate limiting to all routes
-app.use(limiter)
+// Apply speed limiting (progressive delays)
+app.use(speedLimiter)
+
+// ==========================================
+// INPUT SECURITY
+// ==========================================
+// Protect against malicious input
+
+// Input sanitization and SQL injection protection
+app.use(inputSanitization)
+app.use(sqlInjectionProtection)
 
 // ==========================================
 // HEALTH CHECK ENDPOINT
@@ -215,6 +242,9 @@ app.use(`${API_PREFIX}/license`, licenseRoutes)
 // Dashboard routes: /api/student/*
 app.use(`${API_PREFIX}/student`, dashboardRoutes)
 
+// Student Dashboard routes: /api/student/dashboard/*
+app.use(`${API_PREFIX}/student/dashboard`, studentDashboardRoutes)
+
 // Results routes: /api/student/results/*
 app.use(`${API_PREFIX}/student/results`, resultsRoutes)
 
@@ -223,6 +253,21 @@ app.use(`${API_PREFIX}/errors`, errorRoutes)
 
 // Admin routes: /api/admin/*
 app.use(`${API_PREFIX}/admin`, adminRoutes)
+
+// Settings routes: /api/admin/settings/*
+app.use(`${API_PREFIX}/admin/settings`, settingsRoutes)
+
+// Email routes: /api/email/*
+app.use(`${API_PREFIX}/email`, emailRoutes)
+
+// Progress routes: /api/student/progress/*
+app.use(`${API_PREFIX}/student/progress`, progressRoutes)
+
+// Health check routes: /api/health/*
+app.use(`${API_PREFIX}/health`, healthRoutes)
+
+// Notification routes: /api/notifications/*
+app.use(`${API_PREFIX}/notifications`, notificationRoutes)
 
 // ==========================================
 // ROOT ROUTE
@@ -298,8 +343,12 @@ async function startServer() {
     await prisma.$connect()
     logger.info('✅ Database connected successfully')
     
+    // Initialize WebSocket service
+    webSocketService.initialize(server)
+    logger.info('✅ WebSocket service initialized')
+    
     // Start listening for HTTP requests
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`)
       logger.info(`📍 API: http://localhost:${PORT}${API_PREFIX}`)
       logger.info(`🏥 Health: http://localhost:${PORT}/health`)
@@ -307,6 +356,10 @@ async function startServer() {
       
       // Log which CORS origin is allowed
       logger.info(`🔗 CORS origin: ${process.env.CORS_ORIGIN}`)
+      
+      // Start scheduler service
+      startScheduler()
+      logger.info(`⏰ Scheduler service started`)
     })
   } catch (error) {
     // If database connection fails, log error and exit
@@ -327,6 +380,10 @@ startServer()
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...')
   
+  // Stop scheduler
+  stopScheduler()
+  logger.info('Scheduler stopped')
+  
   // Disconnect from database
   await prisma.$disconnect()
   logger.info('Database disconnected')
@@ -338,6 +395,10 @@ process.on('SIGTERM', async () => {
 // Handle SIGINT signal (Ctrl+C)
 process.on('SIGINT', async () => {
   logger.info('\nSIGINT received, shutting down gracefully...')
+  
+  // Stop scheduler
+  stopScheduler()
+  logger.info('Scheduler stopped')
   
   // Disconnect from database
   await prisma.$disconnect()

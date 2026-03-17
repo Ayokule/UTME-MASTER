@@ -24,6 +24,17 @@ import {
   refreshTokenSchema,
   changePasswordSchema
 } from '../validation/auth.validation'
+import {
+  authRateLimit,
+  passwordResetRateLimit,
+  bruteForceProtection,
+  inputSanitization,
+  sqlInjectionProtection,
+  emailValidation,
+  passwordValidation,
+  nameValidation,
+  handleValidationErrors
+} from '../middleware/security.middleware'
 
 // Create router
 // Router is like a mini Express app for specific routes
@@ -38,16 +49,26 @@ const router = Router()
 // Body: { email, password, firstName, lastName, phone? }
 //
 // Middleware chain:
-// 1. validateBody(registerSchema) - Validate request data
-// 2. authController.register - Handle registration
-//
-// If validation fails, error middleware catches it
-// If registration fails, error middleware catches it
+// 1. authRateLimit - Limit registration attempts
+// 2. inputSanitization - Clean input data
+// 3. sqlInjectionProtection - Prevent SQL injection
+// 4. emailValidation - Validate email format
+// 5. passwordValidation - Validate password strength
+// 6. nameValidation - Validate name fields
+// 7. handleValidationErrors - Handle validation failures
+// 8. authController.register - Handle registration
 
 router.post(
   '/register',
-  validateBody(registerSchema),  // Validate request body
-  authController.register         // Call register controller
+  authRateLimit,
+  inputSanitization,
+  sqlInjectionProtection,
+  emailValidation,
+  passwordValidation,
+  nameValidation('firstName'),
+  nameValidation('lastName'),
+  handleValidationErrors,
+  authController.register
 )
 
 // LOGIN USER
@@ -55,12 +76,22 @@ router.post(
 // Body: { email, password }
 //
 // Middleware chain:
-// 1. validateBody(loginSchema) - Validate credentials
-// 2. authController.login - Handle login
+// 1. authRateLimit - Limit login attempts
+// 2. bruteForceProtection - Prevent brute force attacks
+// 3. inputSanitization - Clean input data
+// 4. sqlInjectionProtection - Prevent SQL injection
+// 5. emailValidation - Validate email format
+// 6. handleValidationErrors - Handle validation failures
+// 7. authController.login - Handle login
 
 router.post(
   '/login',
-  validateBody(loginSchema),
+  authRateLimit,
+  bruteForceProtection,
+  inputSanitization,
+  sqlInjectionProtection,
+  emailValidation,
+  handleValidationErrors,
   authController.login
 )
 
@@ -75,6 +106,38 @@ router.post(
   '/refresh',
   validateBody(refreshTokenSchema),
   authController.refreshToken
+)
+
+// REQUEST PASSWORD RESET
+// POST /api/auth/forgot-password
+// Body: { email }
+//
+// Sends password reset email if email exists
+
+router.post(
+  '/forgot-password',
+  passwordResetRateLimit,
+  inputSanitization,
+  sqlInjectionProtection,
+  emailValidation,
+  handleValidationErrors,
+  authController.requestPasswordReset
+)
+
+// RESET PASSWORD WITH TOKEN
+// POST /api/auth/reset-password
+// Body: { token, newPassword }
+//
+// Resets password using token from email
+
+router.post(
+  '/reset-password',
+  authRateLimit,
+  inputSanitization,
+  sqlInjectionProtection,
+  passwordValidation,
+  handleValidationErrors,
+  authController.resetPassword
 )
 
 // ==========================================
@@ -119,13 +182,17 @@ router.put(
 //
 // Middleware chain:
 // 1. authenticate - Verify token
-// 2. validateBody - Validate password data
-// 3. authController.changePassword - Change password
+// 2. inputSanitization - Clean input data
+// 3. passwordValidation - Validate new password
+// 4. handleValidationErrors - Handle validation failures
+// 5. authController.changePassword - Change password
 
 router.post(
   '/change-password',
   authenticate,
-  validateBody(changePasswordSchema),
+  inputSanitization,
+  passwordValidation,
+  handleValidationErrors,
   authController.changePassword
 )
 

@@ -36,7 +36,7 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       return (
         <span
           ref={ref}
-          className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}
+          className={`${baseClasses} rounded-full ${variants[variant]} ${sizes[size]} ${className}`}
           {...props}
         />
       )
@@ -57,3 +57,4 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 Badge.displayName = 'Badge'
 
 export default Badge
+export { Badge }

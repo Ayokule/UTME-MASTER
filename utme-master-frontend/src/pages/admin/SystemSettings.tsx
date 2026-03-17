@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Settings, 
@@ -24,10 +24,17 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { showToast } from '../../components/ui/Toast'
+import { 
+  getSystemSettings, 
+  updateSystemSettings, 
+  resetSystemSettings, 
+  testEmailConfiguration,
+  type SystemSettings 
+} from '../../api/admin'
 
 export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState('general')
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<Partial<SystemSettings>>({
     // General Settings
     siteName: 'UTME Master',
     siteDescription: 'Professional UTME Examination System',
@@ -54,6 +61,9 @@ export default function SystemSettings() {
   })
 
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [testingEmail, setTestingEmail] = useState(false)
+  
   const tabs = [
     { id: 'general', name: 'General', icon: Zap },
     { id: 'security', name: 'Security', icon: Shield },
@@ -64,49 +74,79 @@ export default function SystemSettings() {
     { id: 'monitoring', name: 'Monitoring', icon: Monitor }
   ]
 
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true)
+      const response = await getSystemSettings()
+      setSettings(response.data.settings)
+    } catch (error: any) {
+      showToast.error(error.message || 'Failed to load system settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSave = async () => {
     try {
+      // Validate settings
+      if (settings.maxUploadSize && (settings.maxUploadSize < 1 || settings.maxUploadSize > 100)) {
+        showToast.error('Max upload size must be between 1 and 100 MB')
+        return
+      }
+      if (settings.sessionTimeout && (settings.sessionTimeout < 5 || settings.sessionTimeout > 480)) {
+        showToast.error('Session timeout must be between 5 and 480 minutes')
+        return
+      }
+      if (settings.passwordMinLength && (settings.passwordMinLength < 6 || settings.passwordMinLength > 20)) {
+        showToast.error('Password min length must be between 6 and 20')
+        return
+      }
+      if (settings.maxLoginAttempts && (settings.maxLoginAttempts < 3 || settings.maxLoginAttempts > 10)) {
+        showToast.error('Max login attempts must be between 3 and 10')
+        return
+      }
+      
       setSaving(true)
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const response = await updateSystemSettings(settings)
+      setSettings(response.data.settings)
       showToast.success('Settings saved successfully')
-    } catch (error) {
-      showToast.error('Failed to save settings')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to save settings'
+      showToast.error(errorMessage)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleReset = () => {
-    setSettings({
-      siteName: 'UTME Master',
-      siteDescription: 'Professional UTME Examination System',
-      maintenanceMode: false,
-      maxUploadSize: 5,
-      sessionTimeout: 30,
-      timezone: 'Africa/Lagos',
-      enableTwoFactor: true,
-      passwordMinLength: 8,
-      passwordExpiry: 90,
-      maxLoginAttempts: 5,
-      lockoutDuration: 15,
-      enableAuditLog: true,
-      enableNotifications: true,
-      smtpHost: 'smtp.gmail.com',
-      smtpPort: 587,
-      smtpUsername: '',
-      smtpPassword: '',
-      fromEmail: 'noreply@utmemaster.com'
-    })
-    showToast.success('Settings reset to defaults')
+  const handleReset = async () => {
+    try {
+      setSaving(true)
+      const response = await resetSystemSettings()
+      setSettings(response.data.settings)
+      showToast.success('Settings reset to defaults')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to reset settings'
+      showToast.error(errorMessage)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleTestEmail = async () => {
     try {
-      showToast.loading('Sending test email...')
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      setTestingEmail(true)
+      await testEmailConfiguration()
       showToast.success('Test email sent successfully!')
-    } catch (error) {
-      showToast.error('Failed to send test email')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to send test email'
+      showToast.error(errorMessage)
+    } finally {
+      setTestingEmail(false)
     }
   }
 
@@ -310,9 +350,13 @@ export default function SystemSettings() {
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleTestEmail} variant="outline">
+              <Button 
+                onClick={handleTestEmail} 
+                variant="outline"
+                disabled={testingEmail}
+              >
                 <Mail className="w-4 h-4 mr-2" />
-                Send Test Email
+                {testingEmail ? 'Sending...' : 'Send Test Email'}
               </Button>
             </div>
           </div>
@@ -363,6 +407,22 @@ export default function SystemSettings() {
         return <div>Tab content for {activeTab}</div>
     }
   }
+  
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading system settings...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+  
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 py-8">

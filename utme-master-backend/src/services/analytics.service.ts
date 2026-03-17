@@ -1,42 +1,102 @@
 // ==========================================
-// ANALYTICS SERVICE - Phase 4
+// ANALYTICS SERVICE
 // ==========================================
-// This handles all analytics and statistics:
-// - Student performance tracking
-// - Subject-wise analysis
-// - Time-based trends
-// - Comparison with peers
-// - Progress tracking
-// - Admin dashboard stats
-//
-// ALL WITH BEGINNER-FRIENDLY COMMENTS!
+// Business logic for analytics and statistics
 
 import { prisma } from '../config/database'
-import { NotFoundError } from '../utils/errors'
+import { BadRequestError } from '../utils/errors'
 import { logger } from '../utils/logger'
 
 // ==========================================
-// GET STUDENT DASHBOARD STATS
+// INTERFACES
 // ==========================================
-// Overview statistics for a student's dashboard
-//
-// Returns:
-// - Total exams taken
-// - Average score
-// - Best subject
-// - Worst subject
-// - Recent performance trend
 
-export async function getStudentDashboardStats(studentId: string) {
-  logger.info(`Fetching dashboard stats for student ${studentId}`)
-  
-  // ==========================================
-  // STEP 1: Get all completed exams
-  // ==========================================
-  const completedExams = await prisma.studentExam.findMany({
+export interface StudentPerformanceStats {
+  studentId: string
+  totalExams: number
+  averageScore: number
+  averagePercentage: number
+  totalTimeSpent: number
+  improvementTrend: number
+  strongSubjects: Array<{
+    subject: string
+    averagePercentage: number
+    examCount: number
+  }>
+  weakSubjects: Array<{
+    subject: string
+    averagePercentage: number
+    examCount: number
+  }>
+  recentPerformance: Array<{
+    examTitle: string
+    score: number
+    percentage: number
+    completedAt: string
+  }>
+}
+
+export interface ExamStatistics {
+  examId: string
+  examTitle: string
+  totalAttempts: number
+  averageScore: number
+  averagePercentage: number
+  passRate: number
+  averageTimeSpent: number
+  difficultyAnalysis: {
+    easy: { correct: number; total: number; percentage: number }
+    medium: { correct: number; total: number; percentage: number }
+    hard: { correct: number; total: number; percentage: number }
+  }
+  subjectPerformance: Array<{
+    subject: string
+    averagePercentage: number
+    questionCount: number
+  }>
+  topPerformers: Array<{
+    studentName: string
+    score: number
+    percentage: number
+  }>
+}
+
+export interface ProgressTracking {
+  studentId: string
+  timeRange: 'week' | 'month' | 'quarter' | 'year'
+  progressData: Array<{
+    date: string
+    averageScore: number
+    examCount: number
+    timeSpent: number
+  }>
+  subjectProgress: Array<{
+    subject: string
+    data: Array<{
+      date: string
+      averagePercentage: number
+      examCount: number
+    }>
+  }>
+  milestones: Array<{
+    date: string
+    achievement: string
+    description: string
+  }>
+}
+
+// ==========================================
+// STUDENT PERFORMANCE AGGREGATION
+// ==========================================
+
+export async function getStudentPerformanceStats(studentId: string): Promise<StudentPerformanceStats> {
+  logger.info(`Calculating performance stats for student: ${studentId}`)
+
+  // Get all completed exams for the student
+  const studentExams = await prisma.studentExam.findMany({
     where: {
-      studentId: studentId,
-      status: 'SUBMITTED'
+      studentId,
+      status: 'COMPLETED'
     },
     include: {
       exam: {
@@ -62,568 +122,455 @@ export async function getStudentDashboardStats(studentId: string) {
         }
       }
     },
-    orderBy: { submittedAt: 'desc' }
+    orderBy: {
+      completedAt: 'desc'
+    }
   })
-  
-  if (completedExams.length === 0) {
+
+  if (studentExams.length === 0) {
     return {
+      studentId,
       totalExams: 0,
       averageScore: 0,
       averagePercentage: 0,
-      totalQuestions: 0,
-      totalCorrect: 0,
-      totalWrong: 0,
-      passRate: 0,
-      recentExams: [],
-      subjectPerformance: [],
-      performanceTrend: []
-    }
-  }
-  
-  // ==========================================
-  // STEP 2: Calculate overall statistics
-  // ==========================================
-  const totalExams = completedExams.length
-  const totalScore = completedExams.reduce((sum, exam) => sum + exam.score, 0)
-  const totalPossibleMarks = completedExams.reduce((sum, exam) => sum + exam.exam.totalMarks, 0)
-  const averageScore = totalScore / totalExams
-  const averagePercentage = (totalScore / totalPossibleMarks) * 100
-  
-  const totalQuestions = completedExams.reduce((sum, exam) => sum + exam.totalQuestions, 0)
-  const totalCorrect = completedExams.reduce((sum, exam) => sum + exam.correctAnswers, 0)
-  const totalWrong = completedExams.reduce((sum, exam) => sum + exam.wrongAnswers, 0)
-  
-  const passedExams = completedExams.filter(exam => exam.passed).length
-  const passRate = (passedExams / totalExams) * 100
-  
-  // ==========================================
-  // STEP 3: Calculate subject-wise performance
-  // ==========================================
-  const subjectStats = new Map<string, {
-    name: string,
-    total: number,
-    correct: number,
-    wrong: number
-  }>()
-  
-  for (const exam of completedExams) {
-    for (const answer of exam.answers) {
-      const subject = answer.question.subject
-      
-      if (!subjectStats.has(subject.id)) {
-        subjectStats.set(subject.id, {
-          name: subject.name,
-          total: 0,
-          correct: 0,
-          wrong: 0
-        })
-      }
-      
-      const stats = subjectStats.get(subject.id)!
-      stats.total++
-      if (answer.isCorrect === true) stats.correct++
-      if (answer.isCorrect === false) stats.wrong++
-    }
-  }
-  
-  const subjectPerformance = Array.from(subjectStats.values()).map(stats => ({
-    subject: stats.name,
-    total: stats.total,
-    correct: stats.correct,
-    wrong: stats.wrong,
-    accuracy: ((stats.correct / stats.total) * 100).toFixed(1),
-    percentage: parseFloat(((stats.correct / stats.total) * 100).toFixed(1))
-  })).sort((a, b) => b.percentage - a.percentage)
-  
-  // Best and worst subjects
-  const bestSubject = subjectPerformance[0]
-  const worstSubject = subjectPerformance[subjectPerformance.length - 1]
-  
-  // ==========================================
-  // STEP 4: Calculate performance trend (last 10 exams)
-  // ==========================================
-  const recentExams = completedExams.slice(0, 10).reverse()
-  const performanceTrend = recentExams.map((exam, index) => ({
-    examNumber: index + 1,
-    examTitle: exam.exam.title,
-    score: exam.score,
-    totalMarks: exam.exam.totalMarks,
-    percentage: ((exam.score / exam.exam.totalMarks) * 100).toFixed(1),
-    date: exam.submittedAt,
-    passed: exam.passed
-  }))
-  
-  // ==========================================
-  // STEP 5: Recent exam history
-  // ==========================================
-  const recentExamHistory = completedExams.slice(0, 5).map(exam => ({
-    id: exam.id,
-    examTitle: exam.exam.title,
-    score: exam.score,
-    totalMarks: exam.exam.totalMarks,
-    percentage: ((exam.score / exam.exam.totalMarks) * 100).toFixed(1),
-    grade: exam.grade,
-    passed: exam.passed,
-    submittedAt: exam.submittedAt,
-    timeSpent: exam.timeSpent
-  }))
-  
-  // ==========================================
-  // STEP 6: Calculate strength and weakness
-  // ==========================================
-  // Strength: Subject with highest accuracy
-  // Weakness: Subject with lowest accuracy
-  
-  return {
-    totalExams,
-    averageScore: Math.round(averageScore),
-    averagePercentage: averagePercentage.toFixed(1),
-    totalQuestions,
-    totalCorrect,
-    totalWrong,
-    accuracy: ((totalCorrect / totalQuestions) * 100).toFixed(1),
-    passRate: passRate.toFixed(1),
-    bestSubject: bestSubject?.subject || 'N/A',
-    worstSubject: worstSubject?.subject || 'N/A',
-    recentExams: recentExamHistory,
-    subjectPerformance,
-    performanceTrend,
-    strengths: subjectPerformance.filter(s => parseFloat(s.accuracy) >= 80),
-    weaknesses: subjectPerformance.filter(s => parseFloat(s.accuracy) < 60)
-  }
-}
-
-// ==========================================
-// GET DETAILED SUBJECT ANALYSIS
-// ==========================================
-// Deep dive into a specific subject's performance
-
-export async function getSubjectAnalysis(studentId: string, subjectId: string) {
-  logger.info(`Fetching subject analysis for student ${studentId}, subject ${subjectId}`)
-  
-  // Get subject details
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
-    include: { topics: true }
-  })
-  
-  if (!subject) {
-    throw new NotFoundError('Subject not found')
-  }
-  
-  // Get all answers for this subject
-  const answers = await prisma.studentAnswer.findMany({
-    where: {
-      studentExam: {
-        studentId: studentId,
-        status: 'SUBMITTED'
-      },
-      question: {
-        subjectId: subjectId
-      }
-    },
-    include: {
-      question: {
-        include: {
-          topic: true
-        }
-      },
-      studentExam: {
-        include: {
-          exam: true
-        }
-      }
-    }
-  })
-  
-  if (answers.length === 0) {
-    return {
-      subject: subject.name,
-      totalQuestions: 0,
-      correct: 0,
-      wrong: 0,
-      accuracy: 0,
-      topicBreakdown: [],
-      difficultyBreakdown: [],
+      totalTimeSpent: 0,
+      improvementTrend: 0,
+      strongSubjects: [],
+      weakSubjects: [],
       recentPerformance: []
     }
   }
+
+  // Calculate basic stats
+  const totalExams = studentExams.length
+  const totalScore = studentExams.reduce((sum, exam) => sum + (exam.score || 0), 0)
+  const totalTimeSpent = studentExams.reduce((sum, exam) => sum + (exam.timeSpent || 0), 0)
+  const averageScore = totalScore / totalExams
+  const averagePercentage = studentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / totalExams
+
+  // Calculate improvement trend (compare first half vs second half of exams)
+  const halfPoint = Math.floor(totalExams / 2)
+  const recentExams = studentExams.slice(0, halfPoint)
+  const olderExams = studentExams.slice(halfPoint)
   
-  // Overall stats
-  const totalQuestions = answers.length
-  const correct = answers.filter(a => a.isCorrect === true).length
-  const wrong = answers.filter(a => a.isCorrect === false).length
-  const accuracy = (correct / totalQuestions) * 100
+  const recentAvg = recentExams.length > 0 
+    ? recentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / recentExams.length 
+    : 0
+  const olderAvg = olderExams.length > 0 
+    ? olderExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / olderExams.length 
+    : 0
   
-  // Topic breakdown
-  const topicStats = new Map<string, any>()
+  const improvementTrend = recentAvg - olderAvg
+
+  // Calculate subject performance
+  const subjectStats = new Map<string, { scores: number[], examCount: number }>()
   
-  for (const answer of answers) {
-    const topicName = answer.question.topic?.name || 'General'
+  studentExams.forEach(studentExam => {
+    const subjectScores = new Map<string, { correct: number, total: number }>()
     
-    if (!topicStats.has(topicName)) {
-      topicStats.set(topicName, {
-        topic: topicName,
-        total: 0,
-        correct: 0,
-        wrong: 0
-      })
-    }
+    studentExam.answers.forEach(answer => {
+      const subjectName = answer.question.subject.name
+      if (!subjectScores.has(subjectName)) {
+        subjectScores.set(subjectName, { correct: 0, total: 0 })
+      }
+      const stats = subjectScores.get(subjectName)!
+      stats.total++
+      if (answer.isCorrect) {
+        stats.correct++
+      }
+    })
     
-    const stats = topicStats.get(topicName)!
-    stats.total++
-    if (answer.isCorrect === true) stats.correct++
-    if (answer.isCorrect === false) stats.wrong++
-  }
-  
-  const topicBreakdown = Array.from(topicStats.values()).map(stats => ({
-    ...stats,
-    accuracy: ((stats.correct / stats.total) * 100).toFixed(1)
-  })).sort((a, b) => parseFloat(b.accuracy) - parseFloat(a.accuracy))
-  
-  // Difficulty breakdown
-  const difficultyStats = new Map<string, any>()
-  
-  for (const answer of answers) {
-    const difficulty = answer.question.difficulty
-    
-    if (!difficultyStats.has(difficulty)) {
-      difficultyStats.set(difficulty, {
-        difficulty,
-        total: 0,
-        correct: 0,
-        wrong: 0
-      })
-    }
-    
-    const stats = difficultyStats.get(difficulty)!
-    stats.total++
-    if (answer.isCorrect === true) stats.correct++
-    if (answer.isCorrect === false) stats.wrong++
-  }
-  
-  const difficultyBreakdown = Array.from(difficultyStats.values()).map(stats => ({
-    ...stats,
-    accuracy: ((stats.correct / stats.total) * 100).toFixed(1)
+    subjectScores.forEach((stats, subject) => {
+      const percentage = (stats.correct / stats.total) * 100
+      if (!subjectStats.has(subject)) {
+        subjectStats.set(subject, { scores: [], examCount: 0 })
+      }
+      subjectStats.get(subject)!.scores.push(percentage)
+      subjectStats.get(subject)!.examCount++
+    })
+  })
+
+  // Convert to arrays and sort
+  const subjectPerformance = Array.from(subjectStats.entries()).map(([subject, data]) => ({
+    subject,
+    averagePercentage: data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length,
+    examCount: data.examCount
   }))
-  
-  // Recent performance (last 10 answers)
-  const recentAnswers = answers.slice(-10).map(answer => ({
-    question: answer.question.questionText.substring(0, 100) + '...',
-    isCorrect: answer.isCorrect,
-    difficulty: answer.question.difficulty,
-    topic: answer.question.topic?.name,
-    answeredAt: answer.answeredAt
+
+  const strongSubjects = subjectPerformance
+    .filter(s => s.averagePercentage >= 70)
+    .sort((a, b) => b.averagePercentage - a.averagePercentage)
+    .slice(0, 3)
+
+  const weakSubjects = subjectPerformance
+    .filter(s => s.averagePercentage < 60)
+    .sort((a, b) => a.averagePercentage - b.averagePercentage)
+    .slice(0, 3)
+
+  // Recent performance (last 5 exams)
+  const recentPerformance = studentExams.slice(0, 5).map(exam => ({
+    examTitle: exam.exam.title,
+    score: exam.score || 0,
+    percentage: exam.percentage || 0,
+    completedAt: exam.completedAt?.toISOString() || ''
   }))
-  
+
   return {
-    subject: subject.name,
-    totalQuestions,
-    correct,
-    wrong,
-    accuracy: accuracy.toFixed(1),
-    topicBreakdown,
-    difficultyBreakdown,
-    recentPerformance: recentAnswers,
-    strongTopics: topicBreakdown.filter(t => parseFloat(t.accuracy) >= 80),
-    weakTopics: topicBreakdown.filter(t => parseFloat(t.accuracy) < 60)
+    studentId,
+    totalExams,
+    averageScore,
+    averagePercentage,
+    totalTimeSpent,
+    improvementTrend,
+    strongSubjects,
+    weakSubjects,
+    recentPerformance
   }
 }
 
 // ==========================================
-// GET ADMIN DASHBOARD STATS
+// EXAM STATISTICS CALCULATION
 // ==========================================
-// System-wide statistics for admin dashboard
 
-export async function getAdminDashboardStats() {
-  logger.info('Fetching admin dashboard stats')
-  
-  // ==========================================
-  // STEP 1: User statistics
-  // ==========================================
-  const totalUsers = await prisma.user.count()
-  const totalStudents = await prisma.user.count({ where: { role: 'STUDENT' } })
-  const totalTeachers = await prisma.user.count({ where: { role: 'TEACHER' } })
-  const activeStudents = await prisma.user.count({
-    where: {
-      role: 'STUDENT',
-      lastLogin: {
-        gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-      }
-    }
-  })
-  
-  // ==========================================
-  // STEP 2: Question bank statistics
-  // ==========================================
-  const totalQuestions = await prisma.question.count()
-  const activeQuestions = await prisma.question.count({ where: { isActive: true } })
-  
-  const questionsBySubject = await prisma.subject.findMany({
+export async function getExamStatistics(examId: string): Promise<ExamStatistics> {
+  logger.info(`Calculating statistics for exam: ${examId}`)
+
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
     include: {
-      _count: {
-        select: { questions: true }
+      examQuestions: {
+        include: {
+          question: {
+            include: {
+              subject: true
+            }
+          }
+        }
       }
     }
   })
-  
-  const subjectDistribution = questionsBySubject.map(subject => ({
-    subject: subject.name,
-    count: subject._count.questions
-  }))
-  
-  // ==========================================
-  // STEP 3: Exam statistics
-  // ==========================================
-  const totalExams = await prisma.exam.count()
-  const publishedExams = await prisma.exam.count({ where: { isPublished: true } })
-  const totalAttempts = await prisma.studentExam.count()
-  const completedAttempts = await prisma.studentExam.count({ where: { status: 'SUBMITTED' } })
-  const inProgressAttempts = await prisma.studentExam.count({ where: { status: 'IN_PROGRESS' } })
-  
-  // Average score across all exams
-  const allCompletedExams = await prisma.studentExam.findMany({
-    where: { status: 'SUBMITTED' },
-    include: { exam: true }
-  })
-  
-  let averageScore = 0
-  if (allCompletedExams.length > 0) {
-    const totalPercentage = allCompletedExams.reduce((sum, exam) => {
-      return sum + (exam.score / exam.exam.totalMarks) * 100
-    }, 0)
-    averageScore = totalPercentage / allCompletedExams.length
+
+  if (!exam) {
+    throw new BadRequestError('Exam not found')
   }
-  
-  const passRate = allCompletedExams.length > 0
-    ? (allCompletedExams.filter(e => e.passed).length / allCompletedExams.length) * 100
-    : 0
-  
-  // ==========================================
-  // STEP 4: Recent activity
-  // ==========================================
-  const recentExams = await prisma.studentExam.findMany({
-    where: { status: 'SUBMITTED' },
-    include: {
-      student: { select: { firstName: true, lastName: true } },
-      exam: { select: { title: true, totalMarks: true } }
-    },
-    orderBy: { submittedAt: 'desc' },
-    take: 10
-  })
-  
-  const recentActivity = recentExams.map(exam => ({
-    studentName: `${exam.student.firstName} ${exam.student.lastName}`,
-    examTitle: exam.exam.title,
-    score: exam.score,
-    percentage: ((exam.score / exam.exam.totalMarks) * 100).toFixed(1),
-    passed: exam.passed,
-    submittedAt: exam.submittedAt
-  }))
-  
-  // ==========================================
-  // STEP 5: Performance trends (last 30 days)
-  // ==========================================
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  
-  const examsLast30Days = await prisma.studentExam.groupBy({
-    by: ['submittedAt'],
+
+  // Get all completed attempts
+  const studentExams = await prisma.studentExam.findMany({
     where: {
-      status: 'SUBMITTED',
-      submittedAt: { gte: thirtyDaysAgo }
+      examId,
+      status: 'COMPLETED'
     },
-    _count: true
-  })
-  
-  // ==========================================
-  // STEP 6: Top performers
-  // ==========================================
-  const studentStats = await prisma.studentExam.groupBy({
-    by: ['studentId'],
-    where: { status: 'SUBMITTED' },
-    _avg: { score: true },
-    _count: true,
-    having: {
-      score: {
-        _avg: { gt: 0 }
+    include: {
+      student: {
+        select: {
+          firstName: true,
+          lastName: true
+        }
+      },
+      answers: {
+        include: {
+          question: {
+            include: {
+              subject: true
+            }
+          }
+        }
       }
-    },
-    orderBy: {
-      _avg: {
-        score: 'desc'
-      }
-    },
-    take: 10
+    }
   })
-  
-  const topPerformers = await Promise.all(
-    studentStats.map(async (stat) => {
-      const student = await prisma.user.findUnique({
-        where: { id: stat.studentId },
-        select: { firstName: true, lastName: true, email: true }
-      })
-      
-      return {
-        name: `${student?.firstName} ${student?.lastName}`,
-        email: student?.email,
-        averageScore: stat._avg.score?.toFixed(1) || '0',
-        totalExams: stat._count
+
+  const totalAttempts = studentExams.length
+
+  if (totalAttempts === 0) {
+    return {
+      examId,
+      examTitle: exam.title,
+      totalAttempts: 0,
+      averageScore: 0,
+      averagePercentage: 0,
+      passRate: 0,
+      averageTimeSpent: 0,
+      difficultyAnalysis: {
+        easy: { correct: 0, total: 0, percentage: 0 },
+        medium: { correct: 0, total: 0, percentage: 0 },
+        hard: { correct: 0, total: 0, percentage: 0 }
+      },
+      subjectPerformance: [],
+      topPerformers: []
+    }
+  }
+
+  // Calculate basic stats
+  const totalScore = studentExams.reduce((sum, exam) => sum + (exam.score || 0), 0)
+  const averageScore = totalScore / totalAttempts
+  const averagePercentage = studentExams.reduce((sum, exam) => sum + (exam.percentage || 0), 0) / totalAttempts
+  const passedCount = studentExams.filter(exam => (exam.percentage || 0) >= 50).length
+  const passRate = (passedCount / totalAttempts) * 100
+  const averageTimeSpent = studentExams.reduce((sum, exam) => sum + (exam.timeSpent || 0), 0) / totalAttempts
+
+  // Difficulty analysis
+  const difficultyStats = {
+    EASY: { correct: 0, total: 0 },
+    MEDIUM: { correct: 0, total: 0 },
+    HARD: { correct: 0, total: 0 }
+  }
+
+  studentExams.forEach(studentExam => {
+    studentExam.answers.forEach(answer => {
+      const difficulty = answer.question.difficulty as keyof typeof difficultyStats
+      if (difficultyStats[difficulty]) {
+        difficultyStats[difficulty].total++
+        if (answer.isCorrect) {
+          difficultyStats[difficulty].correct++
+        }
       }
     })
-  )
+  })
+
+  const difficultyAnalysis = {
+    easy: {
+      correct: difficultyStats.EASY.correct,
+      total: difficultyStats.EASY.total,
+      percentage: difficultyStats.EASY.total > 0 ? (difficultyStats.EASY.correct / difficultyStats.EASY.total) * 100 : 0
+    },
+    medium: {
+      correct: difficultyStats.MEDIUM.correct,
+      total: difficultyStats.MEDIUM.total,
+      percentage: difficultyStats.MEDIUM.total > 0 ? (difficultyStats.MEDIUM.correct / difficultyStats.MEDIUM.total) * 100 : 0
+    },
+    hard: {
+      correct: difficultyStats.HARD.correct,
+      total: difficultyStats.HARD.total,
+      percentage: difficultyStats.HARD.total > 0 ? (difficultyStats.HARD.correct / difficultyStats.HARD.total) * 100 : 0
+    }
+  }
+
+  // Subject performance
+  const subjectStats = new Map<string, { correct: number, total: number }>()
   
+  studentExams.forEach(studentExam => {
+    studentExam.answers.forEach(answer => {
+      const subjectName = answer.question.subject.name
+      if (!subjectStats.has(subjectName)) {
+        subjectStats.set(subjectName, { correct: 0, total: 0 })
+      }
+      const stats = subjectStats.get(subjectName)!
+      stats.total++
+      if (answer.isCorrect) {
+        stats.correct++
+      }
+    })
+  })
+
+  const subjectPerformance = Array.from(subjectStats.entries()).map(([subject, stats]) => ({
+    subject,
+    averagePercentage: (stats.correct / stats.total) * 100,
+    questionCount: stats.total / totalAttempts // Average questions per attempt
+  }))
+
+  // Top performers
+  const topPerformers = studentExams
+    .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
+    .slice(0, 5)
+    .map(exam => ({
+      studentName: `${exam.student.firstName} ${exam.student.lastName}`,
+      score: exam.score || 0,
+      percentage: exam.percentage || 0
+    }))
+
   return {
-    users: {
-      total: totalUsers,
-      students: totalStudents,
-      teachers: totalTeachers,
-      activeStudents
-    },
-    questions: {
-      total: totalQuestions,
-      active: activeQuestions,
-      subjectDistribution
-    },
-    exams: {
-      total: totalExams,
-      published: publishedExams,
-      totalAttempts,
-      completed: completedAttempts,
-      inProgress: inProgressAttempts
-    },
-    performance: {
-      averageScore: averageScore.toFixed(1),
-      passRate: passRate.toFixed(1)
-    },
-    recentActivity,
+    examId,
+    examTitle: exam.title,
+    totalAttempts,
+    averageScore,
+    averagePercentage,
+    passRate,
+    averageTimeSpent,
+    difficultyAnalysis,
+    subjectPerformance,
     topPerformers
   }
 }
 
 // ==========================================
-// GET PERFORMANCE COMPARISON
+// PROGRESS TRACKING OVER TIME
 // ==========================================
-// Compare student's performance with class average
 
-export async function getPerformanceComparison(studentId: string) {
-  logger.info(`Fetching performance comparison for student ${studentId}`)
-  
-  // Get student's stats
+export async function getProgressTracking(
+  studentId: string, 
+  timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month'
+): Promise<ProgressTracking> {
+  logger.info(`Calculating progress tracking for student: ${studentId}, range: ${timeRange}`)
+
+  // Calculate date range
+  const now = new Date()
+  let startDate: Date
+  let groupByFormat: string
+
+  switch (timeRange) {
+    case 'week':
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      groupByFormat = 'YYYY-MM-DD'
+      break
+    case 'month':
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      groupByFormat = 'YYYY-MM-DD'
+      break
+    case 'quarter':
+      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      groupByFormat = 'YYYY-WW'
+      break
+    case 'year':
+      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+      groupByFormat = 'YYYY-MM'
+      break
+  }
+
+  // Get student exams in the time range
   const studentExams = await prisma.studentExam.findMany({
     where: {
-      studentId: studentId,
-      status: 'SUBMITTED'
+      studentId,
+      status: 'COMPLETED',
+      completedAt: {
+        gte: startDate,
+        lte: now
+      }
     },
-    include: { exam: true }
+    include: {
+      answers: {
+        include: {
+          question: {
+            include: {
+              subject: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      completedAt: 'asc'
+    }
   })
+
+  // Group exams by date
+  const examsByDate = new Map<string, typeof studentExams>()
   
-  if (studentExams.length === 0) {
-    return {
-      studentAverage: 0,
-      classAverage: 0,
-      percentile: 0,
-      comparison: 'No data available'
+  studentExams.forEach(exam => {
+    if (!exam.completedAt) return
+    
+    const dateKey = exam.completedAt.toISOString().split('T')[0] // YYYY-MM-DD format
+    if (!examsByDate.has(dateKey)) {
+      examsByDate.set(dateKey, [])
+    }
+    examsByDate.get(dateKey)!.push(exam)
+  })
+
+  // Calculate progress data
+  const progressData = Array.from(examsByDate.entries()).map(([date, exams]) => ({
+    date,
+    averageScore: exams.reduce((sum, exam) => sum + (exam.score || 0), 0) / exams.length,
+    examCount: exams.length,
+    timeSpent: exams.reduce((sum, exam) => sum + (exam.timeSpent || 0), 0)
+  }))
+
+  // Calculate subject progress
+  const subjectProgressMap = new Map<string, Map<string, { scores: number[], count: number }>>()
+  
+  studentExams.forEach(exam => {
+    if (!exam.completedAt) return
+    
+    const dateKey = exam.completedAt.toISOString().split('T')[0]
+    const subjectScores = new Map<string, { correct: number, total: number }>()
+    
+    exam.answers.forEach(answer => {
+      const subjectName = answer.question.subject.name
+      if (!subjectScores.has(subjectName)) {
+        subjectScores.set(subjectName, { correct: 0, total: 0 })
+      }
+      const stats = subjectScores.get(subjectName)!
+      stats.total++
+      if (answer.isCorrect) {
+        stats.correct++
+      }
+    })
+    
+    subjectScores.forEach((stats, subject) => {
+      if (!subjectProgressMap.has(subject)) {
+        subjectProgressMap.set(subject, new Map())
+      }
+      if (!subjectProgressMap.get(subject)!.has(dateKey)) {
+        subjectProgressMap.get(subject)!.set(dateKey, { scores: [], count: 0 })
+      }
+      const percentage = (stats.correct / stats.total) * 100
+      subjectProgressMap.get(subject)!.get(dateKey)!.scores.push(percentage)
+      subjectProgressMap.get(subject)!.get(dateKey)!.count++
+    })
+  })
+
+  const subjectProgress = Array.from(subjectProgressMap.entries()).map(([subject, dateMap]) => ({
+    subject,
+    data: Array.from(dateMap.entries()).map(([date, data]) => ({
+      date,
+      averagePercentage: data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length,
+      examCount: data.count
+    }))
+  }))
+
+  // Calculate milestones
+  const milestones: Array<{ date: string; achievement: string; description: string }> = []
+  
+  // Find first exam
+  if (studentExams.length > 0) {
+    milestones.push({
+      date: studentExams[0].completedAt?.toISOString().split('T')[0] || '',
+      achievement: 'First Exam',
+      description: 'Completed your first exam in this period'
+    })
+  }
+
+  // Find best performance
+  const bestExam = studentExams.reduce((best, current) => 
+    (current.percentage || 0) > (best.percentage || 0) ? current : best
+  , studentExams[0])
+  
+  if (bestExam && (bestExam.percentage || 0) > 80) {
+    milestones.push({
+      date: bestExam.completedAt?.toISOString().split('T')[0] || '',
+      achievement: 'Excellence Achieved',
+      description: `Scored ${Math.round(bestExam.percentage || 0)}% - your best performance!`
+    })
+  }
+
+  // Find improvement streaks
+  let consecutiveImprovements = 0
+  let maxStreak = 0
+  let streakStartDate = ''
+  
+  for (let i = 1; i < progressData.length; i++) {
+    if (progressData[i].averageScore > progressData[i - 1].averageScore) {
+      if (consecutiveImprovements === 0) {
+        streakStartDate = progressData[i - 1].date
+      }
+      consecutiveImprovements++
+      maxStreak = Math.max(maxStreak, consecutiveImprovements)
+    } else {
+      consecutiveImprovements = 0
     }
   }
   
-  // Calculate student average
-  const studentTotal = studentExams.reduce((sum, exam) => {
-    return sum + (exam.score / exam.exam.totalMarks) * 100
-  }, 0)
-  const studentAverage = studentTotal / studentExams.length
-  
-  // Calculate class average (all students)
-  const allExams = await prisma.studentExam.findMany({
-    where: { status: 'SUBMITTED' },
-    include: { exam: true }
-  })
-  
-  const classTotal = allExams.reduce((sum, exam) => {
-    return sum + (exam.score / exam.exam.totalMarks) * 100
-  }, 0)
-  const classAverage = allExams.length > 0 ? classTotal / allExams.length : 0
-  
-  // Calculate percentile
-  // How many students have lower average than this student?
-  const studentAverages = await prisma.studentExam.groupBy({
-    by: ['studentId'],
-    where: { status: 'SUBMITTED' },
-    _avg: { score: true }
-  })
-  
-  const lowerCount = studentAverages.filter(stat => {
-    const avg = stat._avg.score || 0
-    return avg < (studentTotal / studentExams.length)
-  }).length
-  
-  const percentile = (lowerCount / studentAverages.length) * 100
-  
-  // Comparison message
-  let comparison = ''
-  const diff = studentAverage - classAverage
-  if (diff > 10) {
-    comparison = 'Excellent! You are performing significantly above class average.'
-  } else if (diff > 0) {
-    comparison = 'Good! You are performing above class average.'
-  } else if (diff > -10) {
-    comparison = 'You are performing close to class average.'
-  } else {
-    comparison = 'You can improve! Focus on your weak areas.'
+  if (maxStreak >= 3) {
+    milestones.push({
+      date: streakStartDate,
+      achievement: 'Improvement Streak',
+      description: `${maxStreak} consecutive improvements in performance`
+    })
   }
-  
-  return {
-    studentAverage: studentAverage.toFixed(1),
-    classAverage: classAverage.toFixed(1),
-    percentile: percentile.toFixed(0),
-    comparison,
-    difference: diff.toFixed(1)
-  }
-}
 
-// ==========================================
-// GET PROGRESS OVER TIME
-// ==========================================
-// Track student's improvement over time
-
-export async function getProgressOverTime(studentId: string, days: number = 30) {
-  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-  
-  const exams = await prisma.studentExam.findMany({
-    where: {
-      studentId: studentId,
-      status: 'SUBMITTED',
-      submittedAt: { gte: startDate }
-    },
-    include: { exam: true },
-    orderBy: { submittedAt: 'asc' }
-  })
-  
-  const progressData = exams.map((exam, index) => ({
-    examNumber: index + 1,
-    examTitle: exam.exam.title,
-    score: exam.score,
-    percentage: ((exam.score / exam.exam.totalMarks) * 100).toFixed(1),
-    date: exam.submittedAt,
-    passed: exam.passed
-  }))
-  
-  // Calculate trend (improving, stable, declining)
-  let trend = 'STABLE'
-  if (progressData.length >= 3) {
-    const firstThird = progressData.slice(0, Math.floor(progressData.length / 3))
-    const lastThird = progressData.slice(-Math.floor(progressData.length / 3))
-    
-    const firstAvg = firstThird.reduce((sum, p) => sum + parseFloat(p.percentage), 0) / firstThird.length
-    const lastAvg = lastThird.reduce((sum, p) => sum + parseFloat(p.percentage), 0) / lastThird.length
-    
-    if (lastAvg > firstAvg + 5) trend = 'IMPROVING'
-    if (lastAvg < firstAvg - 5) trend = 'DECLINING'
-  }
-  
   return {
-    period: `Last ${days} days`,
-    totalExams: exams.length,
+    studentId,
+    timeRange,
     progressData,
-    trend
+    subjectProgress,
+    milestones
   }
 }

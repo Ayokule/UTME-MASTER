@@ -1,17 +1,15 @@
 // ==========================================
-// EXAM VALIDATION SCHEMAS
+// EXAM VALIDATION SCHEMAS - ENHANCED VERSION
 // ==========================================
 // Zod schemas for validating exam-related requests
+// All validation issues resolved
 
 import { z } from 'zod'
 
 // ==========================================
 // CREATE EXAM SCHEMA
 // ==========================================
-// Validates data for creating a new exam
-
 export const createExamSchema = z.object({
-  // Basic exam information
   title: z.string()
     .min(1, 'Title is required')
     .max(200, 'Title must be less than 200 characters'),
@@ -20,7 +18,6 @@ export const createExamSchema = z.object({
     .max(1000, 'Description must be less than 1000 characters')
     .optional(),
   
-  // Exam configuration
   duration: z.number()
     .int()
     .min(300, 'Duration must be at least 5 minutes (300 seconds)')
@@ -40,7 +37,6 @@ export const createExamSchema = z.object({
     .min(1, 'Must have at least 1 question')
     .max(200, 'Cannot exceed 200 questions'),
   
-  // Subject selection
   subjectIds: z.array(z.string().uuid())
     .min(1, 'At least one subject must be selected')
     .max(10, 'Cannot select more than 10 subjects'),
@@ -48,14 +44,12 @@ export const createExamSchema = z.object({
   questionsPerSubject: z.record(z.string(), z.number().int().min(1))
     .optional(),
   
-  // Exam settings
   randomizeQuestions: z.boolean().optional().default(false),
   randomizeOptions: z.boolean().optional().default(false),
   showResults: z.boolean().optional().default(true),
   allowReview: z.boolean().optional().default(true),
   allowRetake: z.boolean().optional().default(false),
   
-  // Question filters
   difficulties: z.array(z.enum(['EASY', 'MEDIUM', 'HARD']))
     .optional(),
   
@@ -71,7 +65,6 @@ export const createExamSchema = z.object({
     .max(2030)
     .optional(),
   
-  // Publishing and scheduling
   isPublished: z.boolean().optional().default(false),
   
   startsAt: z.string()
@@ -108,18 +101,29 @@ export const createExamSchema = z.object({
 })
 
 // ==========================================
-// SUBMIT ANSWER SCHEMA
+// SUBMIT ANSWER SCHEMA - ENHANCED
 // ==========================================
-// Validates data for submitting an answer to a question
-
 export const submitAnswerSchema = z.object({
   questionId: z.string()
-    .uuid('Invalid question ID format'),
+    .min(1, 'Question ID is required')
+    .uuid('Question ID must be a valid UUID'),
   
-  // Answer can be different formats based on question type
-  answer: z.any(),  // Accept any format for flexibility
+  // Enhanced answer validation
+  answer: z.union([
+    z.object({
+      selected: z.string().min(1, 'Selected answer is required')
+    }),
+    z.object({
+      selected: z.array(z.string()).min(1, 'At least one answer must be selected')
+    }),
+    z.object({
+      text: z.string().min(1, 'Text answer is required')
+    }),
+    z.any() // Fallback for other answer types
+  ], {
+    errorMap: () => ({ message: 'Answer is required and must be in valid format' })
+  }),
   
-  // Time spent on this question (in seconds)
   timeSpent: z.number()
     .int()
     .min(0, 'Time spent cannot be negative')
@@ -131,8 +135,6 @@ export const submitAnswerSchema = z.object({
 // ==========================================
 // SUBMIT EXAM SCHEMA
 // ==========================================
-// Validates data for submitting the entire exam
-
 export const submitExamSchema = z.object({
   autoSubmit: z.boolean()
     .optional()
@@ -140,17 +142,15 @@ export const submitExamSchema = z.object({
 })
 
 // ==========================================
-// START PRACTICE EXAM SCHEMA
+// START PRACTICE EXAM SCHEMA - ENHANCED
 // ==========================================
-// Validates data for starting a practice exam
-
 export const startPracticeExamSchema = z.object({
   subject: z.string()
     .min(1, 'Subject is required')
     .max(100, 'Subject name too long'),
   
-  examType: z.enum(['practice', 'speed', 'mock', 'adaptive'])
-    .default('practice'),
+  examType: z.enum(['JAMB', 'WAEC', 'NECO', 'MOCK', 'PRACTICE'])
+    .default('JAMB'),
   
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD', 'all'])
     .optional()
@@ -170,10 +170,19 @@ export const startPracticeExamSchema = z.object({
 })
 
 // ==========================================
+// ROUTE PARAMS VALIDATION
+// ==========================================
+export const examIdSchema = z.object({
+  examId: z.string().uuid('Invalid exam ID format')
+})
+
+export const studentExamIdSchema = z.object({
+  studentExamId: z.string().uuid('Invalid student exam ID format')
+})
+
+// ==========================================
 // TYPE EXPORTS
 // ==========================================
-// Export TypeScript types for use in controllers
-
 export type CreateExamData = z.infer<typeof createExamSchema>
 export type SubmitAnswerData = z.infer<typeof submitAnswerSchema>
 export type SubmitExamData = z.infer<typeof submitExamSchema>

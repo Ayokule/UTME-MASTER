@@ -95,6 +95,16 @@ export default function Register() {
       description: 'Practice tests, track progress, and improve your scores'
     }
   }
+  // Validate role is appropriate
+if (!['STUDENT', 'TEACHER'].includes(formData.role)) {
+  setError('Invalid role selected')
+  return
+}
+
+// For teachers, could require:
+// - School name validation
+// - Teacher ID verification (future)
+// - Email domain check (school.edu)
 
   const roleInfo = getRoleInfo()
 

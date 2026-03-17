@@ -221,12 +221,14 @@ export const getSubjectAnalytics = asyncHandler(async (req: Request, res: Respon
     }
 
     // Check if user has premium access
+    // Premium features are available for PREMIUM and TRIAL users only
+    // BASIC users should not have access
     const user = await prisma.user.findUnique({
       where: { id: studentId },
       select: { licenseTier: true }
     })
 
-    if (user?.licenseTier === 'TRIAL') {
+    if (!user?.licenseTier || user.licenseTier === 'BASIC') {
       res.status(403).json({
         success: false,
         message: 'Premium feature - upgrade to access detailed subject analytics'
@@ -308,12 +310,14 @@ export const getPredictedScore = asyncHandler(async (req: Request, res: Response
     }
 
     // Check if user has premium access
+    // Premium features are available for PREMIUM and TRIAL users only
+    // BASIC users should not have access
     const user = await prisma.user.findUnique({
       where: { id: studentId },
       select: { licenseTier: true }
     })
 
-    if (user?.licenseTier === 'TRIAL') {
+    if (!user?.licenseTier || user.licenseTier === 'BASIC') {
       res.status(403).json({
         success: false,
         message: 'Premium feature - upgrade to access JAMB score prediction'
@@ -677,6 +681,7 @@ export const getAdminDashboard = asyncHandler(async (req: Request, res: Response
       success: true,
       data: adminDashboardData
     })
+    return
 
   } catch (error: any) {
     console.error('Admin dashboard error:', error)
@@ -685,5 +690,6 @@ export const getAdminDashboard = asyncHandler(async (req: Request, res: Response
       message: 'Failed to load admin dashboard data',
       error: error.message
     })
+    return
   }
 })

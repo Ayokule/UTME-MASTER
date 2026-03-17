@@ -137,7 +137,7 @@ export default function ImageUpload({ value, onChange, disabled }: ImageUploadPr
             `}
             {...(getRootProps() as any)}
           >
-            <input {...getInputProps()} />
+            <input {...getInputProps()} id="question-image-upload" name="question-image" />
             
             <div className="space-y-4">
               <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
