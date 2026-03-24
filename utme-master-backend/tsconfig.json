@@ -1,85 +1,42 @@
-// ==========================================
-// TYPESCRIPT CONFIGURATION FOR BACKEND
-// ==========================================
-// This tells TypeScript how to compile our code
-// TypeScript is JavaScript with types (helps catch errors)
-
 {
   "compilerOptions": {
-    // TARGET: Which JavaScript version to output
-    // ES2020 works on Node.js v14+
     "target": "ES2020",
-    
-    
-    // MODULE: How to organize code into modules
-    // CommonJS is the standard for Node.js
     "module": "commonjs",
-    
-    // LIB: Which JavaScript features we can use
     "lib": ["ES2020"],
-    
-    // OUTDIR: Where to put compiled JavaScript files
-    // TypeScript (.ts) → JavaScript (.js) goes into dist/ folder
     "outDir": "./dist",
-    
-    // ROOTDIR: Where our TypeScript source files are
     "rootDir": "./src",
-    
-    // MODULE RESOLUTION: How to find imported modules
     "moduleResolution": "node",
-    
-    // ALLOW THESE FEATURES
-    "esModuleInterop": true,           // Allow default imports
-    "allowSyntheticDefaultImports": true,  // Better import compatibility
-    "resolveJsonModule": true,         // Allow importing JSON files
-    "skipLibCheck": true,              // Skip checking library files (faster)
-    
-    // STRICT TYPE CHECKING (catches more errors)
-    "strict": true,                    // Enable all strict checks
-    "noImplicitAny": true,            // Require explicit types (no 'any')
-    "strictNullChecks": true,         // Null and undefined are different
-    "strictFunctionTypes": true,      // Strict function type checking
-    
-    // ADDITIONAL CHECKS
-    "noUnusedLocals": false,           // Error on unused variables
-    "noUnusedParameters": false,       // Error on unused function parameters
-    "noImplicitReturns": true,        // Functions must return consistently
-    "noFallthroughCasesInSwitch": true, // Must have break in switch cases
-    
-    // SOURCE MAPS: Help debug TypeScript in production
-    // When error occurs, shows TypeScript line, not JavaScript line
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "sourceMap": true,
-    
-    // DECORATORS: Allow experimental decorators (needed for some libraries)
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    
-    // PATH ALIASES: Shortcut imports
-    // Instead of: import X from '../../../utils/X'
-    // We can do: import X from '@/utils/X'
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },
-    
-    // TYPE ROOTS: Where to find type definitions
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    
-    // FORCE CONSISTENT FILE NAMES
-    // Prevents: import from 'File.ts' when file is 'file.ts'
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true
   },
-  
-  // INCLUDE: Which files to compile
   "include": [
-    "src/**/*"      // All files in src folder
+    "src/**/*",
+    "prisma/**/*"
   ],
-  
-  // EXCLUDE: Which files to skip
   "exclude": [
-    "node_modules",  // Don't compile dependencies
-    "dist",          // Don't recompile output
-    "**/*.spec.ts",  // Don't compile test files
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
     "**/*.test.ts"
   ]
 }

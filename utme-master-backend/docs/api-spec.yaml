@@ -1,0 +1,1354 @@
+# UTME Master API Documentation
+# OpenAPI 3.0 Specification
+# Generated: 2026-03-18
+
+openapi: 3.0.3
+info:
+  title: UTME Master API
+  description: |
+    UTME Master Backend API - Exam preparation system for JAMB, WAEC, NECO
+    
+    ## Authentication
+    All protected endpoints require a Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer <jwt_token>
+    ```
+    
+    ## Response Format
+    All responses follow a consistent format:
+    ```json
+    {
+      "success": true,
+      "data": { ... },
+      "message": "Operation successful"
+    }
+    ```
+    
+    ## Error Responses
+    Common error codes:
+    - `400`: Bad Request - Invalid input
+    - `401`: Unauthorized - Missing or invalid token
+    - `403`: Forbidden - Insufficient permissions
+    - `404`: Not Found - Resource doesn't exist
+    - `500`: Internal Server Error
+    
+  version: 1.0.0
+  contact:
+    name: UTME Master Support
+    email: support@utmemaster.com
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+  - url: https://api.utmemaster.com/api
+    description: Production server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Users
+    description: User management endpoints
+  - name: Exams
+    description: Exam management endpoints
+  - name: Questions
+    description: Question bank endpoints
+  - name: Student
+    description: Student exam taking endpoints
+  - name: Results
+    description: Exam results endpoints
+  - name: Analytics
+    description: Analytics and statistics endpoints
+  - name: Admin
+    description: Admin-only endpoints
+
+paths:
+  # ==========================================
+  # AUTHENTICATION
+  # ==========================================
+  
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - firstName
+                - lastName
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: student@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: password123
+                firstName:
+                  type: string
+                  example: John
+                lastName:
+                  type: string
+                  example: Doe
+                role:
+                  type: string
+                  enum: [STUDENT, TEACHER, ADMIN]
+                  default: STUDENT
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "user-123"
+                      email:
+                        type: string
+                        example: "student@example.com"
+                      firstName:
+                        type: string
+                        example: "John"
+                      lastName:
+                        type: string
+                        example: "Doe"
+                      role:
+                        type: string
+                        example: "STUDENT"
+                      licenseTier:
+                        type: string
+                        example: "TRIAL"
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          description: Bad request - Email already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "BAD_REQUEST"
+                      message:
+                        type: string
+                        example: "Email already exists"
+  
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      description: Authenticate user and return JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: student@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "user-123"
+                          email:
+                            type: string
+                            example: "student@example.com"
+                          firstName:
+                            type: string
+                            example: "John"
+                          lastName:
+                            type: string
+                            example: "Doe"
+                          role:
+                            type: string
+                            example: "STUDENT"
+                          licenseTier:
+                            type: string
+                            example: "TRIAL"
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Unauthorized - Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Invalid credentials"
+  
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      description: Invalidate current session
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+  
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user profile
+      description: Retrieve authenticated user information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "user-123"
+                      email:
+                        type: string
+                        example: "student@example.com"
+                      firstName:
+                        type: string
+                        example: "John"
+                      lastName:
+                        type: string
+                        example: "Doe"
+                      role:
+                        type: string
+                        example: "STUDENT"
+                      licenseTier:
+                        type: string
+                        example: "TRIAL"
+                      isActive:
+                        type: boolean
+                        example: true
+        '401':
+          description: Unauthorized - Invalid token
+  
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Request password reset
+      description: Send password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: student@example.com
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Password reset email sent"
+  
+  # ==========================================
+  # USERS
+  # ==========================================
+  
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Retrieve user profile information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "user-123"
+                      email:
+                        type: string
+                        example: "student@example.com"
+                      firstName:
+                        type: string
+                        example: "John"
+                      lastName:
+                        type: string
+                        example: "Doe"
+                      role:
+                        type: string
+                        example: "STUDENT"
+                      licenseTier:
+                        type: string
+                        example: "TRIAL"
+                      totalExams:
+                        type: integer
+                        example: 5
+                      passedExams:
+                        type: integer
+                        example: 3
+    
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update user profile information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  example: John
+                lastName:
+                  type: string
+                  example: Doe
+                phone:
+                  type: string
+                  example: "+2348012345678"
+      responses:
+        '200':
+          description: Profile updated successfully
+  
+  /users/progress:
+    get:
+      tags:
+        - Users
+      summary: Get user progress
+      description: Retrieve user's exam progress and statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User progress retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      totalExams:
+                        type: integer
+                        example: 5
+                      passedExams:
+                        type: integer
+                        example: 3
+                      failedExams:
+                        type: integer
+                        example: 2
+                      inProgressExams:
+                        type: integer
+                        example: 1
+                      averageScore:
+                        type: number
+                        example: 75.5
+                      bestScore:
+                        type: number
+                        example: 90
+                      worstScore:
+                        type: number
+                        example: 60
+  # ==========================================
+  # EXAMS
+  # ==========================================
+  
+  /exams/available:
+    get:
+      tags:
+        - Exams
+      summary: Get available exams
+      description: Retrieve list of available exams for the current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Available exams retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      exams:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: "exam-123"
+                            title:
+                              type: string
+                              example: "JAMB Mock Exam - Mathematics"
+                            description:
+                              type: string
+                              example: "Mock exam for JAMB Mathematics"
+                            duration:
+                              type: integer
+                              example: 3600
+                            totalQuestions:
+                              type: integer
+                              example: 40
+                            totalMarks:
+                              type: integer
+                              example: 100
+                            passMarks:
+                              type: integer
+                              example: 50
+                            status:
+                              type: string
+                              example: "available"
+                            canStart:
+                              type: boolean
+                              example: true
+                            attempts:
+                              type: integer
+                              example: 0
+  
+  /exams/{examId}:
+    get:
+      tags:
+        - Exams
+      summary: Get exam details
+      description: Retrieve detailed information about a specific exam
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "exam-123"
+      responses:
+        '200':
+          description: Exam details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "exam-123"
+                      title:
+                        type: string
+                        example: "JAMB Mock Exam - Mathematics"
+                      description:
+                        type: string
+                        example: "Mock exam for JAMB Mathematics"
+                      duration:
+                        type: integer
+                        example: 3600
+                      totalQuestions:
+                        type: integer
+                        example: 40
+                      totalMarks:
+                        type: integer
+                        example: 100
+                      passMarks:
+                        type: integer
+                        example: 50
+                      allowReview:
+                        type: boolean
+                        example: true
+                      allowRetake:
+                        type: boolean
+                        example: false
+                      isPublished:
+                        type: boolean
+                        example: true
+                      isActive:
+                        type: boolean
+                        example: true
+  
+  /exams/{examId}/start:
+    post:
+      tags:
+        - Student
+      summary: Start exam
+      description: Start a new exam session for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "exam-123"
+      responses:
+        '200':
+          description: Exam started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      studentExamId:
+                        type: string
+                        example: "student-exam-123"
+                      examId:
+                        type: string
+                        example: "exam-123"
+                      examTitle:
+                        type: string
+                        example: "JAMB Mock Exam - Mathematics"
+                      duration:
+                        type: integer
+                        example: 60
+                      totalQuestions:
+                        type: integer
+                        example: 40
+                      totalMarks:
+                        type: integer
+                        example: 100
+                      startedAt:
+                        type: string
+                        format: date-time
+                        example: "2026-03-18T10:00:00Z"
+                      timeRemaining:
+                        type: integer
+                        example: 3600
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: "question-1"
+                            questionText:
+                              type: string
+                              example: "What is the capital of Nigeria?"
+                            questionType:
+                              type: string
+                              example: "MCQ"
+                            options:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  label:
+                                    type: string
+                                    example: "A"
+                                  text:
+                                    type: string
+                                    example: "Lagos"
+                            subject:
+                              type: string
+                              example: "Mathematics"
+                            difficulty:
+                              type: string
+                              example: "EASY"
+                      allowReview:
+                        type: boolean
+                        example: true
+                      allowRetake:
+                        type: boolean
+                        example: false
+        '400':
+          description: Bad request - Exam already started or has no questions
+        '403':
+          description: Forbidden - Exam not published or not active
+  
+  /exams/{studentExamId}/submit:
+    post:
+      tags:
+        - Student
+      summary: Submit exam
+      description: Submit the current exam session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentExamId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "student-exam-123"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                autoSubmit:
+                  type: boolean
+                  example: false
+      responses:
+        '200':
+          description: Exam submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      studentExamId:
+                        type: string
+                        example: "student-exam-123"
+                      examTitle:
+                        type: string
+                        example: "JAMB Mock Exam - Mathematics"
+                      totalQuestions:
+                        type: integer
+                        example: 40
+                      answeredQuestions:
+                        type: integer
+                        example: 40
+                      correctAnswers:
+                        type: integer
+                        example: 32
+                      wrongAnswers:
+                        type: integer
+                        example: 8
+                      score:
+                        type: integer
+                        example: 80
+                      totalMarks:
+                        type: integer
+                        example: 100
+                      scorePercentage:
+                        type: string
+                        example: "80.0"
+                      passed:
+                        type: boolean
+                        example: true
+                      grade:
+                        type: string
+                        example: "A"
+                      passMarks:
+                        type: integer
+                        example: 50
+                      autoSubmitted:
+                        type: boolean
+                        example: false
+  
+  /exams/{examId}/retake:
+    post:
+      tags:
+        - Student
+      summary: Retake exam
+      description: Start a new attempt for a previously completed exam
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "exam-123"
+      responses:
+        '200':
+          description: Exam retake started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      studentExamId:
+                        type: string
+                        example: "student-exam-456"
+                      examId:
+                        type: string
+                        example: "exam-123"
+  
+  # ==========================================
+  # QUESTIONS
+  # ==========================================
+  
+  /questions:
+    get:
+      tags:
+        - Questions
+      summary: Get questions
+      description: Retrieve questions with optional filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: subject
+          in: query
+          schema:
+            type: string
+            example: "Mathematics"
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [EASY, MEDIUM, HARD]
+            example: "EASY"
+        - name: examType
+          in: query
+          schema:
+            type: string
+            enum: [JAMB, WAEC, NECO, MOCK, PRACTICE]
+            example: "JAMB"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Questions retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: "question-123"
+                            questionText:
+                              type: string
+                              example: "What is the capital of Nigeria?"
+                            questionType:
+                              type: string
+                              example: "MCQ"
+                            difficulty:
+                              type: string
+                              example: "EASY"
+                            subject:
+                              type: string
+                              example: "Mathematics"
+                            isActive:
+                              type: boolean
+                              example: true
+                      total:
+                        type: integer
+                        example: 100
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+  
+  /questions/{questionId}:
+    get:
+      tags:
+        - Questions
+      summary: Get question details
+      description: Retrieve detailed information about a specific question
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "question-123"
+      responses:
+        '200':
+          description: Question details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "question-123"
+                      questionText:
+                        type: string
+                        example: "What is the capital of Nigeria?"
+                      questionType:
+                        type: string
+                        example: "MCQ"
+                      options:
+                        type: object
+                        properties:
+                          A:
+                            type: object
+                            properties:
+                              text:
+                                type: string
+                                example: "Lagos"
+                          B:
+                            type: object
+                            properties:
+                              text:
+                                type: string
+                                example: "Abuja"
+                          C:
+                            type: object
+                            properties:
+                              text:
+                                type: string
+                                example: "Kano"
+                          D:
+                            type: object
+                            properties:
+                              text:
+                                type: string
+                                example: "Port Harcourt"
+                      correctAnswer:
+                        type: string
+                        example: "B"
+                      explanation:
+                        type: string
+                        example: "Abuja is the capital of Nigeria"
+                      difficulty:
+                        type: string
+                        example: "EASY"
+                      subject:
+                        type: string
+                        example: "Mathematics"
+  
+  # ==========================================
+  # RESULTS
+  # ==========================================
+  
+  /student/results/{studentExamId}:
+    get:
+      tags:
+        - Results
+      summary: Get exam results
+      description: Retrieve results for a completed exam
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentExamId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "student-exam-123"
+      responses:
+        '200':
+          description: Exam results retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      studentExamId:
+                        type: string
+                        example: "student-exam-123"
+                      examTitle:
+                        type: string
+                        example: "JAMB Mock Exam - Mathematics"
+                      totalQuestions:
+                        type: integer
+                        example: 40
+                      answeredQuestions:
+                        type: integer
+                        example: 40
+                      correctAnswers:
+                        type: integer
+                        example: 32
+                      wrongAnswers:
+                        type: integer
+                        example: 8
+                      score:
+                        type: integer
+                        example: 80
+                      totalMarks:
+                        type: integer
+                        example: 100
+                      scorePercentage:
+                        type: string
+                        example: "80.0"
+                      passed:
+                        type: boolean
+                        example: true
+                      grade:
+                        type: string
+                        example: "A"
+                      passMarks:
+                        type: integer
+                        example: 50
+                      submittedAt:
+                        type: string
+                        format: date-time
+                        example: "2026-03-18T11:00:00Z"
+                      timeSpent:
+                        type: integer
+                        example: 1800
+  
+  /student/results/{studentExamId}/pdf:
+    get:
+      tags:
+        - Results
+      summary: Download results PDF
+      description: Download exam results as PDF
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentExamId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "student-exam-123"
+      responses:
+        '200':
+          description: PDF downloaded successfully
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Results not found
+  
+  /student/results/{studentExamId}/share:
+    post:
+      tags:
+        - Results
+      summary: Share results
+      description: Share exam results to social media or copy link
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentExamId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "student-exam-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - platform
+              properties:
+                platform:
+                  type: string
+                  enum: [facebook, twitter, linkedin, copy]
+                  example: "facebook"
+      responses:
+        '200':
+          description: Results shared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Results shared successfully"
+                      shareUrl:
+                        type: string
+                        example: "https://utmemaster.com/results/student-exam-123"
+  
+  # ==========================================
+  # ANALYTICS
+  # ==========================================
+  
+  /student/analytics/dashboard:
+    get:
+      tags:
+        - Analytics
+      summary: Get student dashboard analytics
+      description: Retrieve comprehensive analytics for student dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Analytics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      stats:
+                        type: object
+                        properties:
+                          total_exams:
+                            type: integer
+                            example: 5
+                          average_score:
+                            type: number
+                            example: 75.5
+                          best_score:
+                            type: number
+                            example: 90
+                          improvement_trend:
+                            type: number
+                            example: 15
+                          strong_areas:
+                            type: array
+                            items:
+                              type: string
+                              example: "Algebra"
+                          weak_areas:
+                            type: array
+                            items:
+                              type: string
+                              example: "Calculus"
+  
+  /student/analytics/official-exams:
+    get:
+      tags:
+        - Analytics
+      summary: Get official exams analytics
+      description: Retrieve analytics for official exams (JAMB, WAEC, NECO)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Official exams analytics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      stats:
+                        type: object
+                        properties:
+                          total_exams:
+                            type: integer
+                            example: 3
+                          average_score:
+                            type: number
+                            example: 78.5
+                          best_score:
+                            type: number
+                            example: 85
+                          worst_score:
+                            type: number
+                            example: 65
+                          pass_rate:
+                            type: number
+                            example: 66.7
+                          passed_exams:
+                            type: integer
+                            example: 2
+  
+  /student/analytics/practice-tests:
+    get:
+      tags:
+        - Analytics
+      summary: Get practice tests analytics
+      description: Retrieve analytics for practice tests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Practice tests analytics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      stats:
+                        type: object
+                        properties:
+                          total_tests:
+                            type: integer
+                            example: 10
+                          average_score:
+                            type: number
+                            example: 72.3
+                          best_score:
+                            type: number
+                            example: 88
+                          improvement_trend:
+                            type: number
+                            example: 25
+                          strong_areas:
+                            type: array
+                            items:
+                              type: string
+                              example: "Geometry"
+                          weak_areas:
+                            type: array
+                            items:
+                              type: string
+                              example: "Trigonometry"
+  
+  /exams/{examId}/statistics:
+    get:
+      tags:
+        - Analytics
+      summary: Get exam statistics (Admin)
+      description: Retrieve comprehensive statistics for an exam
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "exam-123"
+      responses:
+        '200':
+          description: Exam statistics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      examId:
+                        type: string
+                        example: "exam-123"
+                      examTitle:
+                        type: string
+                        example: "JAMB Mock Exam - Mathematics"
+                      totalQuestions:
+                        type: integer
+                        example: 40
+                      totalMarks:
+                        type: integer
+                        example: 100
+                      passMarks:
+                        type: integer
+                        example: 50
+                      statistics:
+                        type: object
+                        properties:
+                          totalAttempts:
+                            type: integer
+                            example: 50
+                          passedAttempts:
+                            type: integer
+                            example: 35
+                          failedAttempts:
+                            type: integer
+                            example: 15
+                          passRate:
+                            type: string
+                            example: "70.0"
+                          averageScore:
+                            type: string
+                            example: "75.5"
+                          highestScore:
+                            type: integer
+                            example: 95
+                          lowestScore:
+                            type: integer
+                            example: 45
+                          averageTime:
+                            type: integer
+                            example: 1800
+                          gradeDistribution:
+                            type: object
+                            properties:
+                              A:
+                                type: integer
+                                example: 10
+                              B:
+                                type: integer
+                                example: 15
+                              C:
+                                type: integer
+                                example: 12
+                              D:
+                                type: integer
+                                example: 8
+                              F:
+                                type: integer
+                                example: 5

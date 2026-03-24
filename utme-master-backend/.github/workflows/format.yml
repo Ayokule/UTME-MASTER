@@ -1,0 +1,39 @@
+# ==========================================
+# CODE FORMATTING CHECK
+# ==========================================
+# Ensure code is properly formatted
+
+name: Format Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Verify no uncommitted changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Uncommitted changes found. Please run 'npm run format' and commit the changes."
+            git status
+            git diff
+            exit 1
+          fi

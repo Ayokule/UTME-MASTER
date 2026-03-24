@@ -9,6 +9,7 @@ import * as settingsService from '../services/settings.service'
 import * as emailService from '../services/email.service'
 import { logger } from '../utils/logger'
 import { ensureAuthenticated } from '../utils/errorStandardization'
+import { success, badRequest, serverError } from '../utils/responseHelper'
 
 // ==========================================
 // GET SYSTEM SETTINGS
@@ -73,25 +74,16 @@ export const testEmailConfiguration = asyncHandler(async (req: Request, res: Res
   const { testEmail } = req.body
   
   if (!testEmail) {
-    return res.status(400).json({
-      success: false,
-      error: { message: 'Test email address is required' }
-    })
+    return badRequest(res, 'Test email address is required')
   }
 
-  const success = await emailService.testEmailConfiguration(testEmail)
+  const successResult = await emailService.testEmailConfiguration(testEmail)
   
   logger.info(`Email configuration test requested by admin: ${req.user!.email}`)
   
-  if (success) {
-    return res.json({
-      success: true,
-      message: 'Test email sent successfully'
-    })
+  if (successResult) {
+    return success(res, {}, 'Test email sent successfully', 200)
   } else {
-    return res.status(500).json({
-      success: false,
-      error: { message: 'Failed to send test email. Check SMTP configuration.' }
-    })
+    return serverError(res, 'Failed to send test email. Check SMTP configuration.')
   }
 })

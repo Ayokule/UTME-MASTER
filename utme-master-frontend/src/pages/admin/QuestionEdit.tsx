@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Edit, ArrowLeft, Eye } from 'lucide-react'
 import Layout from '../../components/Layout'
@@ -16,8 +16,12 @@ import { SkeletonCard } from '../../components/ui/LoadingSkeleton'
 
 export default function QuestionEdit() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams<{ id: string }>()
   const { updateQuestion } = useQuestionStore()
+
+  const isTeacher = location.pathname.startsWith('/teacher')
+  const listPath = isTeacher ? '/teacher/questions' : '/admin/questions'
   
   const [question, setQuestion] = useState<Question | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,7 +55,7 @@ export default function QuestionEdit() {
     try {
       await updateQuestion(question.id, data as UpdateQuestionData)
       showToast.success('Question updated successfully!')
-      navigate('/admin/questions')
+      navigate(listPath)
     } catch (error: any) {
       showToast.error(error.message || 'Failed to update question')
     } finally {
@@ -60,7 +64,7 @@ export default function QuestionEdit() {
   }
 
   const handleCancel = () => {
-    navigate('/admin/questions')
+    navigate(listPath)
   }
 
   if (loading) {

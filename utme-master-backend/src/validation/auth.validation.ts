@@ -33,13 +33,16 @@ export const registerSchema = z.object({
   
   // PASSWORD
   // Must be at least 8 characters
-  // Should contain uppercase, lowercase, number, special char (enforced in frontend)
+  // Must contain uppercase, lowercase, and number
   password: z
     .string({
       required_error: 'Password is required'
     })
     .min(8, 'Password must be at least 8 characters')
-    .max(100, 'Password must be less than 100 characters'),
+    .max(100, 'Password must be less than 100 characters')
+    .regex(/^(?=.*[a-z])/, { message: 'Password must contain at least one lowercase letter' })
+    .regex(/^(?=.*[A-Z])/, { message: 'Password must contain at least one uppercase letter' })
+    .regex(/^(?=.*\d)/, { message: 'Password must contain at least one number' }),
   
   // FIRST NAME
   // Minimum 2 characters, maximum 50

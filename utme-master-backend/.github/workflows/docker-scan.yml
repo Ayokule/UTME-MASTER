@@ -1,0 +1,73 @@
+# ==========================================
+# DOCKER IMAGE SCAN
+# ==========================================
+# Scan Docker images for vulnerabilities
+
+name: Docker Image Scan
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'utme-master-backend/Dockerfile'
+      - 'utme-master-frontend/Dockerfile'
+  workflow_dispatch:
+
+jobs:
+  scan-backend:
+    name: Scan Backend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: utme-master-backend
+          file: utme-master-backend/Dockerfile
+          push: false
+          tags: backend:latest
+          load: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: backend:latest
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+
+  scan-frontend:
+    name: Scan Frontend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: utme-master-frontend
+          file: utme-master-frontend/Dockerfile
+          push: false
+          tags: frontend:latest
+          load: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: frontend:latest
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'

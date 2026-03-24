@@ -1,0 +1,74 @@
+# ==========================================
+# QUALITY GATE WORKFLOW
+# ==========================================
+# Enforce quality gates before merging
+
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run typecheck
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Check Test Coverage
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            COVERAGE=$(grep -oP 'Lines\s*:\s*\K\d+' coverage/lcov.info)
+            if [ "$COVERAGE" -lt 80 ]; then
+              echo "Coverage is below 80%: $COVERAGE%"
+              exit 1
+            fi
+          fi
+
+      - name: Check Bundle Size
+        run: |
+          if [ -d dist ]; then
+            BUNDLE_SIZE=$(du -sm dist | cut -f1)
+            if [ "$BUNDLE_SIZE" -gt 500 ]; then
+              echo "Bundle size exceeds 500KB: ${BUNDLE_SIZE}KB"
+              exit 1
+            fi
+          fi
+
+      - name: Check for TODOs
+        run: |
+          TODOS=$(grep -r "TODO" src/ || true)
+          if [ -n "$TODOS" ]; then
+            echo "Found TODOs in code:"
+            echo "$TODOS"
+            exit 1
+          fi
+
+      - name: Check for Console Logs
+        run: |
+          CONSOLES=$(grep -r "console\." src/ --exclude="*.test.ts" || true)
+          if [ -n "$CONSOLES" ]; then
+            echo "Found console statements in code:"
+            echo "$CONSOLES"
+            exit 1
+          fi

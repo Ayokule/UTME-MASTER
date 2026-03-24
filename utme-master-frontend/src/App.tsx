@@ -19,9 +19,10 @@ const ProfileSettings = lazy(() => import('./pages/profile/Settings'))
 
 // Student pages
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'))
-const ExamDashboard = lazy(() => import('./pages/student/ExamDashboard'))
-const TestDashboard = lazy(() => import('./pages/student/TestDashboard'))
+const OfficialExamsDashboard = lazy(() => import('./pages/student/OfficialExamsDashboard-Enhanced'))
+const PracticeTestsDashboard = lazy(() => import('./pages/student/PracticeTestsDashboard-Enhanced'))
 const ExamSelection = lazy(() => import('./pages/student/ExamSelection'))
+const StudentAnalytics = lazy(() => import('./pages/student/Analytics'))
 const ExamInterface = lazy(() => import('./pages/student/ExamInterface'))
 const Results = lazy(() => import('./pages/student/Results'))
 const ExamReview = lazy(() => import('./pages/student/ExamReview'))
@@ -29,6 +30,9 @@ const ExamReview = lazy(() => import('./pages/student/ExamReview'))
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const ExamManagement = lazy(() => import('./pages/admin/ExamManagement'))
+const ExamCreate = lazy(() => import('./pages/admin/ExamCreate'))
+// route: /admin/exams/create
+const DataManagement = lazy(() => import('./pages/admin/DataManagement'))
 const QuestionList = lazy(() => import('./pages/admin/QuestionList'))
 const QuestionCreate = lazy(() => import('./pages/admin/QuestionCreate'))
 const QuestionEdit = lazy(() => import('./pages/admin/QuestionEdit'))
@@ -36,6 +40,15 @@ const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'))
 const LicenseManagement = lazy(() => import('./pages/admin/LicenseManagement'))
 const BulkImport = lazy(() => import('./pages/admin/BulkImport'))
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'))
+const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
+const FlaggedQuestions = lazy(() => import('./pages/admin/FlaggedQuestions'))
+
+// Teacher pages
+const TeacherDashboard = lazy(() => import('./pages/teacher/Dashboard'))
+const TeacherClassManagement = lazy(() => import('./pages/teacher/ClassManagement'))
+const TeacherStudentProgress = lazy(() => import('./pages/teacher/StudentProgress'))
+const TeacherAnalytics = lazy(() => import('./pages/teacher/TeacherAnalytics'))
+const TeacherExamCreation = lazy(() => import('./pages/teacher/ExamCreation'))
 
 function LoadingSpinner() {
   return (
@@ -89,17 +102,22 @@ function App() {
             } />
             <Route path="/student/exam-dashboard" element={
               <ProtectedRoute requiredRole="STUDENT">
-                <ExamDashboard />
+                <OfficialExamsDashboard />
               </ProtectedRoute>
             } />
             <Route path="/student/test-dashboard" element={
               <ProtectedRoute requiredRole="STUDENT">
-                <TestDashboard />
+                <PracticeTestsDashboard />
               </ProtectedRoute>
             } />
             <Route path="/student/exams" element={
               <ProtectedRoute requiredRole="STUDENT">
                 <ExamSelection />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/analytics" element={
+              <ProtectedRoute requiredRole="STUDENT">
+                <StudentAnalytics />
               </ProtectedRoute>
             } />
             <Route path="/student/exam/:studentExamId" element={
@@ -124,9 +142,56 @@ function App() {
                 <AdminDashboard />
               </ProtectedRoute>
             } />
+
+            {/* Teacher Routes */}
+            <Route path="/teacher/dashboard" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/classes" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <TeacherClassManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/students" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <TeacherStudentProgress />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/analytics" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <TeacherAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/exam-creation" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <TeacherExamCreation />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/questions" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <QuestionList />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/questions/create" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <QuestionCreate />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/questions/edit/:id" element={
+              <ProtectedRoute requiredRole={["TEACHER", "ADMIN"]}>
+                <QuestionEdit />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/exams" element={
               <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
                 <ExamManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/exams/create" element={
+              <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
+                <ExamCreate />
               </ProtectedRoute>
             } />
             <Route path="/admin/questions" element={
@@ -162,6 +227,21 @@ function App() {
             <Route path="/admin/settings" element={
               <ProtectedRoute requiredRole="ADMIN">
                 <SystemSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/data-management" element={
+              <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
+                <DataManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/users" element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/flagged-questions" element={
+              <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
+                <FlaggedQuestions />
               </ProtectedRoute>
             } />
 

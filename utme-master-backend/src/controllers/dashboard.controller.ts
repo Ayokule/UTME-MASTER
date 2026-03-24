@@ -693,3 +693,184 @@ export const getAdminDashboard = asyncHandler(async (req: Request, res: Response
     return
   }
 })
+
+// ==========================================
+// GET STUDENT EXAMS (available official exams)
+// GET /api/student/exams
+// ==========================================
+export const getStudentExams = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const studentId = req.user?.id
+  if (!studentId) {
+    res.status(401).json({ success: false, message: 'User not authenticated' })
+    return
+  }
+
+  const [exams, completedExams] = await Promise.all([
+    prisma.exam.findMany({
+      where: { isPublished: true, isActive: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        duration: true,
+        totalQuestions: true,
+        totalMarks: true,
+        passMarks: true,
+        allowRetake: true,
+        allowReview: true,
+        startsAt: true,
+        endsAt: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.studentExam.findMany({
+      where: { studentId, status: 'SUBMITTED', isPractice: false },
+      select: { score: true, totalQuestions: true }
+    })
+  ])
+
+  const scores = completedExams.map(e => e.score || 0)
+  const bestScore = scores.length > 0 ? Math.max(...scores) : 0
+  const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+
+  const stats = {
+    totalExams: exams.length,
+    examsCompleted: completedExams.length,
+    averageScore,
+    bestScore,
+    improvementTrend: completedExams.length >= 2
+      ? scores[0] >= scores[scores.length - 1] ? '+' + (scores[0] - scores[scores.length - 1]) + '%' : '0%'
+      : 'N/A',
+    totalHours: 0,
+    strongSubjects: [],
+    weakSubjects: []
+  }
+
+  res.json({ success: true, data: { exams, stats } })
+})
+
+// ==========================================
+// GET STUDENT EXAM HISTORY (completed official exams)
+// GET /api/student/exam-history
+// ==========================================
+export const getStudentExamHistory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const studentId = req.user?.id
+  if (!studentId) {
+    res.status(401).json({ success: false, message: 'User not authenticated' })
+    return
+  }
+
+  const history = await prisma.studentExam.findMany({
+    where: { studentId, status: 'SUBMITTED', isPractice: false },
+    include: {
+      exam: {
+        select: { id: true, title: true, totalQuestions: true, totalMarks: true, passMarks: true }
+      }
+    },
+    orderBy: { submittedAt: 'desc' }
+  })
+
+  const formatted = history.map(se => ({
+    id: se.id,
+    examId: se.examId,
+    title: se.exam.title,
+    score: se.score,
+    totalMarks: se.exam.totalMarks,
+    passMarks: se.exam.passMarks,
+    totalQuestions: se.exam.totalQuestions,
+    status: se.status,
+    startedAt: se.startedAt,
+    submittedAt: se.submittedAt,
+    timeSpent: se.timeSpent
+  }))
+
+  res.json({ success: true, data: { history: formatted } })
+})
+
+// ==========================================
+// GET STUDENT TESTS (available practice tests)
+// GET /api/student/tests
+// ==========================================
+export const getStudentTests = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const studentId = req.user?.id
+  if (!studentId) {
+    res.status(401).json({ success: false, message: 'User not authenticated' })
+    return
+  }
+
+  const [subjects, completedTests] = await Promise.all([
+    prisma.subject.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        _count: { select: { questions: true } }
+      }
+    }),
+    prisma.studentExam.findMany({
+      where: { studentId, status: 'SUBMITTED', isPractice: true },
+      select: { score: true, totalQuestions: true }
+    })
+  ])
+
+  const tests = subjects
+    .filter(s => s._count.questions > 0)
+    .map(s => ({
+      id: s.id,
+      subject: s.name,
+      code: s.code,
+      questionCount: s._count.questions,
+      type: 'practice'
+    }))
+
+  const scores = completedTests.map(t => t.score || 0)
+  const bestScore = scores.length > 0 ? Math.max(...scores) : 0
+  const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+
+  const stats = {
+    totalTests: tests.length,
+    testsCompleted: completedTests.length,
+    averageScore,
+    bestScore,
+    improvementTrend: 'N/A',
+    currentStreak: 0,
+    totalHours: 0,
+    strongSubjects: [],
+    weakSubjects: [],
+    subjectPerformance: []
+  }
+
+  res.json({ success: true, data: { tests, stats } })
+})
+
+// ==========================================
+// GET STUDENT TEST HISTORY (completed practice tests)
+// GET /api/student/test-history
+// ==========================================
+export const getStudentTestHistory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const studentId = req.user?.id
+  if (!studentId) {
+    res.status(401).json({ success: false, message: 'User not authenticated' })
+    return
+  }
+
+  const history = await prisma.studentExam.findMany({
+    where: { studentId, status: 'SUBMITTED', isPractice: true },
+    orderBy: { submittedAt: 'desc' }
+  })
+
+  const formatted = history.map(se => ({
+    id: se.id,
+    score: se.score,
+    totalQuestions: se.totalQuestions,
+    status: se.status,
+    startedAt: se.startedAt,
+    submittedAt: se.submittedAt,
+    timeSpent: se.timeSpent,
+    isPractice: true
+  }))
+
+  res.json({ success: true, data: { history: formatted } })
+})

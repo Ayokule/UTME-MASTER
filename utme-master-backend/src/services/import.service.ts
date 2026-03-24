@@ -341,18 +341,17 @@ async function processRow(row: any, rowNumber: number, userId: string): Promise<
       subjectId: subject.id,
       topicId: topicId,
       questionText: questionText,
-      // Create options JSON from individual option fields
       options: [
         { label: 'A', text: String(row.optionA).trim(), isCorrect: correctAnswer === 'A' },
         { label: 'B', text: String(row.optionB).trim(), isCorrect: correctAnswer === 'B' },
         { label: 'C', text: String(row.optionC).trim(), isCorrect: correctAnswer === 'C' },
         { label: 'D', text: String(row.optionD).trim(), isCorrect: correctAnswer === 'D' }
       ],
-      // Legacy fields for backward compatibility
-      optionA: String(row.optionA).trim(),
-      optionB: String(row.optionB).trim(),
-      optionC: String(row.optionC).trim(),
-      optionD: String(row.optionD).trim(),
+      // Legacy fields for backward compatibility - not in schema, kept for reference
+      // optionA: String(row.optionA).trim(),
+      // optionB: String(row.optionB).trim(),
+      // optionC: String(row.optionC).trim(),
+      // optionD: String(row.optionD).trim(),
       correctAnswer: correctAnswer,
       explanation: row.explanation ? String(row.explanation).trim() : null,
       difficulty: String(row.difficulty).trim().toUpperCase() as 'EASY' | 'MEDIUM' | 'HARD',

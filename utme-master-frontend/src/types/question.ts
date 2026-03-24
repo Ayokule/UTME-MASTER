@@ -1,13 +1,21 @@
+export interface QuestionOption {
+  label: string
+  text: string
+  isCorrect: boolean
+}
+
 export interface Question {
   id: string
   subject: string
   topic?: string
   questionText: string
-  optionA: string
-  optionB: string
-  optionC: string
-  optionD: string
-  correctAnswer: 'A' | 'B' | 'C' | 'D'
+  options: QuestionOption[]
+  // Legacy flat fields (kept for backward compat)
+  optionA?: string
+  optionB?: string
+  optionC?: string
+  optionD?: string
+  correctAnswer: string
   explanation?: string
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   year?: number
@@ -39,11 +47,8 @@ export interface CreateQuestionData {
   subject: string
   topic?: string
   questionText: string
-  optionA: string
-  optionB: string
-  optionC: string
-  optionD: string
-  correctAnswer: 'A' | 'B' | 'C' | 'D'
+  options: QuestionOption[]
+  correctAnswer: string
   explanation?: string
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   year?: number

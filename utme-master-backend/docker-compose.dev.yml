@@ -1,0 +1,121 @@
+# ==========================================
+# UTME MASTER BACKEND - DEVELOPMENT DOCKER COMPOSE
+# ==========================================
+# Development configuration with hot-reload and debugging
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  db:
+    image: postgres:15-alpine
+    container_name: utme-master-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: utme_dev
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: utme_master_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma/migrations:/docker-entrypoint-initdb.d/migrations
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U utme_dev -d utme_master_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - utme-network
+
+  # ==========================================
+  # Backend API (Development)
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: utme-master-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_URL: postgresql://utme_dev:dev_password@db:5432/utme_master_dev
+      JWT_SECRET: dev-jwt-secret-key-very-insecure-please-change
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:5173
+      SMTP_HOST: sandbox.smtp.mailtrap.io
+      SMTP_PORT: 2525
+      SMTP_USERNAME: your-mailtrap-username
+      SMTP_PASSWORD: your-mailtrap-password
+      FROM_EMAIL: noreply@utmemaster-dev.test
+      LOG_LEVEL: debug
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:8080
+      ENABLE_RATE_LIMIT: true
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 1000
+    ports:
+      - "5000:5000"
+      - "9229:9229"  # Debug port
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - utme-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: ["npm", "run", "dev"]
+
+  # ==========================================
+  # Redis Cache
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: utme-master-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - utme-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================
+  # Adminer (Database Management UI)
+  # ==========================================
+  adminer:
+    image: adminer:4.8.1
+    container_name: utme-master-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - utme-network
+
+networks:
+  utme-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

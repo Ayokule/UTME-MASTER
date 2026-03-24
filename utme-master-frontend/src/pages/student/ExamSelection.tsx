@@ -94,6 +94,10 @@ export default function ExamSelection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [startingExamId, setStartingExamId] = useState<string | null>(null)
+  const [examError, setExamError] = useState<{ examId: string; message: string } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSubject, setSelectedSubject] = useState<string>('all')
+  const [filterType, setFilterType] = useState<'all' | 'available' | 'scheduled' | 'completed'>('all')
 
   useEffect(() => {
     loadData()
@@ -128,96 +132,45 @@ export default function ExamSelection() {
     }
   }
 
+  // Filter exams based on search, subject, and type
+  const filteredExams = exams.filter(exam => {
+    // Search filter
+    const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         exam.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    // Subject filter
+    const matchesSubject = selectedSubject === 'all' || 
+                          exam.subjects?.includes(selectedSubject) ||
+                          exam.subjectCode === selectedSubject ||
+                          exam.subjectName === selectedSubject
+    
+    // Type filter
+    const matchesType = filterType === 'all' ||
+                       (filterType === 'available' && exam.status === 'available') ||
+                       (filterType === 'scheduled' && exam.status === 'scheduled') ||
+                       (filterType === 'completed' && exam.status === 'completed')
+    
+    return matchesSearch && matchesSubject && matchesType
+  })
+
   const handleStartExam = async (examId: string) => {
+    setExamError(null)
     try {
       setStartingExamId(examId)
-      console.log('🚀 [EXAM SELECTION] Starting exam:', examId)
-      
-      // Call startExam API to create StudentExam record
       const response = await examAPI.startExam(examId)
-      
       if (response.success && response.data?.studentExamId) {
-        console.log('✅ [EXAM SELECTION] Exam started, studentExamId:', response.data.studentExamId)
-        // Navigate to exam interface with studentExamId
         navigate(`/student/exam/${response.data.studentExamId}`)
         showToast.success('Exam started!')
       } else {
         throw new Error('Invalid response from server')
       }
     } catch (err: any) {
-      console.error('❌ [EXAM SELECTION] Error starting exam:', err)
-      showToast.error(err.message || 'Failed to start exam')
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to start exam'
+      // Show inline error on the card instead of a generic toast
+      setExamError({ examId, message: msg })
     } finally {
       setStartingExamId(null)
     }
-  }
-
-  // Show all exams
-  const filteredExams = exams
-
-  if (loading) {
-    return (
-      <Layout>
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-        >
-          <div className="space-y-6">
-            {/* Header skeleton */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "300px" }}
-                    transition={{ duration: 1 }}
-                    className="h-8 bg-white/20 rounded-lg mb-4"
-                  />
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "200px" }}
-                    transition={{ duration: 1, delay: 0.2 }}
-                    className="h-4 bg-white/15 rounded"
-                  />
-                </div>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full"
-                />
-              </div>
-            </motion.div>
-
-            {/* Exams skeleton */}
-            <motion.div 
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <motion.div
-                  key={i}
-                  variants={itemVariants}
-                  className="bg-white rounded-2xl shadow-lg p-6 animate-pulse"
-                >
-                  <div className="h-4 bg-gray-200 rounded mb-4"></div>
-                  <div className="h-8 bg-gray-200 rounded mb-4"></div>
-                  <div className="h-3 bg-gray-100 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-100 rounded mb-4"></div>
-                  <div className="h-10 bg-gray-200 rounded"></div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </motion.div>
-      </Layout>
-    )
   }
 
   return (
@@ -259,6 +212,75 @@ export default function ExamSelection() {
                 </p>
               </div>
             </div>
+            
+            {/* Filter Bar */}
+            <motion.div 
+              variants={itemVariants}
+              className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Search */}
+                <div className="md:col-span-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search exams..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                
+                {/* Subject Filter */}
+                <div>
+                  <select
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Subjects</option>
+                    {subjects.map(subject => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Type Filter */}
+                <div>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="available">Available</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Filter Results Count */}
+              <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                <span>Showing {filteredExams.length} of {exams.length} exams</span>
+                {(searchQuery || selectedSubject !== 'all' || filterType !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSelectedSubject('all')
+                      setFilterType('all')
+                    }}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
 
           {/* Error Message */}
@@ -335,7 +357,7 @@ export default function ExamSelection() {
                           <span className="text-gray-600">Duration:</span>
                           <span className="font-medium flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            {exam.duration} min
+                            {Math.round(exam.duration / 60)} min
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
@@ -347,6 +369,13 @@ export default function ExamSelection() {
                           <span className="font-medium">{exam.totalMarks}</span>
                         </div>
                       </div>
+
+                      {examError?.examId === exam.id && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-red-700">{examError.message}</p>
+                        </div>
+                      )}
 
                       <Button 
                         className="w-full bg-blue-600 hover:bg-blue-700"
@@ -393,31 +422,31 @@ export default function ExamSelection() {
           <motion.div variants={itemVariants} className="mt-12 pt-8 border-t border-gray-200">
             <h3 className="text-lg font-bold text-gray-900 mb-4">View Analytics</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link to="/student/dashboard/official-exams">
+              <Link to="/student/analytics">
                 <motion.div
                   whileHover={{ scale: 1.02, y: -5 }}
                   className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl cursor-pointer"
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <BarChart3 className="w-6 h-6 text-blue-600" />
-                    <h4 className="font-bold text-gray-900">Official Exams Dashboard</h4>
+                    <h4 className="font-bold text-gray-900">Performance Analytics</h4>
                   </div>
                   <p className="text-sm text-gray-600">
-                    View your official exam performance and analytics
+                    View your performance analytics, subject breakdown, and progress trends
                   </p>
                 </motion.div>
               </Link>
-              <Link to="/student/dashboard/practice-tests">
+              <Link to="/student/exams?filter=practice">
                 <motion.div
                   whileHover={{ scale: 1.02, y: -5 }}
                   className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl cursor-pointer"
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <Flame className="w-6 h-6 text-orange-600" />
-                    <h4 className="font-bold text-gray-900">Practice Tests Dashboard</h4>
+                    <h4 className="font-bold text-gray-900">Practice Tests</h4>
                   </div>
                   <p className="text-sm text-gray-600">
-                    Track your practice progress and improvement trends
+                    Browse and take practice tests to improve your skills
                   </p>
                 </motion.div>
               </Link>

@@ -59,7 +59,8 @@ export default function QuestionTable({ onEdit, onDelete }: QuestionTableProps) 
       : <ChevronDown className="w-4 h-4 text-primary-600" />
   }
 
-  const truncateText = (text: string, maxLength: number = 60) => {
+  const truncateText = (text: string | undefined, maxLength: number = 60) => {
+    if (!text) return ''
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
   }

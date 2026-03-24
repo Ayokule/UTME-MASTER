@@ -60,15 +60,12 @@ export const useQuestionStore = create<QuestionStore>((set, get) => ({
         ...filters
       })
       
-      // Handle the response structure from backend
-      const data = (response as any).data || response
-      
       set({
-        questions: data.questions || [],
-        total: data.total || data.pagination?.total || 0,
-        totalPages: data.totalPages || data.pagination?.totalPages || 0,
+        questions: response.questions || [],
+        total: response.total || 0,
+        totalPages: response.totalPages || 0,
         loading: false,
-        selectedQuestions: [] // Clear selection when fetching new data
+        selectedQuestions: []
       })
     } catch (error: any) {
       set({

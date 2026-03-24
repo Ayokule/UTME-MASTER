@@ -68,6 +68,47 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 })
 
 // ==========================================
+// GET USER BY ID
+// ==========================================
+export const getUserById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params
+  const user = await adminService.getUserById(id)
+  res.json({ success: true, data: { user } })
+})
+
+// ==========================================
+// UPDATE USER INFO
+// ==========================================
+export const updateUser = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params
+  const user = await adminService.updateUser(id, req.body)
+  res.json({ success: true, message: 'User updated successfully', data: { user } })
+})
+
+// ==========================================
+// RESET USER PASSWORD (Admin sets new password)
+// ==========================================
+export const resetUserPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { password } = req.body
+  if (!password || password.length < 6) {
+    res.status(400).json({ success: false, error: { message: 'Password must be at least 6 characters' } })
+    return
+  }
+  await adminService.resetUserPassword(id, password)
+  res.json({ success: true, message: 'Password reset successfully' })
+})
+
+// ==========================================
+// TOGGLE USER ACTIVE STATUS
+// ==========================================
+export const toggleUserActive = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params
+  const user = await adminService.toggleUserActive(id)
+  res.json({ success: true, message: `User ${user.isActive ? 'activated' : 'deactivated'}`, data: { user } })
+})
+
+// ==========================================
 // UPDATE USER ROLE
 // ==========================================
 export const updateUserRole = asyncHandler(async (req: Request, res: Response) => {

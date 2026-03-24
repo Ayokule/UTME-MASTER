@@ -1,16 +1,22 @@
 import { z } from 'zod'
 
+const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] as const
+export type OptionLabel = typeof OPTION_LABELS[number]
+
+export const questionOptionSchema = z.object({
+  label: z.string(),
+  text: z.string().min(1, 'Option text is required'),
+  isCorrect: z.boolean()
+})
+
 export const questionSchema = z.object({
   subject: z.string().min(1, 'Subject is required'),
   topic: z.string().optional(),
   questionText: z.string().min(10, 'Question must be at least 10 characters'),
-  optionA: z.string().min(1, 'Option A is required'),
-  optionB: z.string().min(1, 'Option B is required'),
-  optionC: z.string().min(1, 'Option C is required'),
-  optionD: z.string().min(1, 'Option D is required'),
-  correctAnswer: z.enum(['A', 'B', 'C', 'D'], {
-    message: 'Correct answer is required'
-  }),
+  options: z.array(questionOptionSchema)
+    .min(2, 'At least 2 options required')
+    .max(10, 'Maximum 10 options allowed'),
+  correctAnswer: z.string().min(1, 'Correct answer is required'),
   explanation: z.string().optional(),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], {
     message: 'Difficulty must be EASY, MEDIUM, or HARD'
@@ -21,13 +27,18 @@ export const questionSchema = z.object({
   }),
   imageUrl: z.string().url().optional().or(z.literal(''))
 }).refine((data) => {
-  // Check that all options are unique
-  const options = [data.optionA, data.optionB, data.optionC, data.optionD]
-  const uniqueOptions = new Set(options)
-  return uniqueOptions.size === options.length
+  // At least one option must be correct
+  return data.options.some(o => o.isCorrect)
+}, {
+  message: 'Please select at least one correct answer',
+  path: ['correctAnswer']
+}).refine((data) => {
+  // All option texts must be unique
+  const texts = data.options.map(o => o.text.trim().toLowerCase())
+  return new Set(texts).size === texts.length
 }, {
   message: 'All options must be unique',
-  path: ['optionA'] // This will show the error on optionA, but it applies to all options
+  path: ['options']
 })
 
 export const questionFiltersSchema = z.object({
@@ -48,36 +59,6 @@ export const questionFiltersSchema = z.object({
   path: ['yearFrom']
 })
 
-export const bulkImportRowSchema = z.object({
-  Subject: z.string().min(1, 'Subject is required'),
-  Topic: z.string().optional(),
-  Question: z.string().min(10, 'Question must be at least 10 characters'),
-  'Option A': z.string().min(1, 'Option A is required'),
-  'Option B': z.string().min(1, 'Option B is required'),
-  'Option C': z.string().min(1, 'Option C is required'),
-  'Option D': z.string().min(1, 'Option D is required'),
-  'Correct Answer': z.enum(['A', 'B', 'C', 'D'], {
-    message: 'Correct answer must be A, B, C, or D'
-  }),
-  Explanation: z.string().optional(),
-  Difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], {
-    message: 'Difficulty must be EASY, MEDIUM, or HARD'
-  }),
-  Year: z.number().min(2000).max(2030).optional(),
-  'Exam Type': z.enum(['JAMB', 'WAEC', 'NECO'], {
-    message: 'Exam type must be JAMB, WAEC, or NECO'
-  }),
-  'Image URL': z.string().url().optional().or(z.literal(''))
-}).refine((data) => {
-  // Check that all options are unique
-  const options = [data['Option A'], data['Option B'], data['Option C'], data['Option D']]
-  const uniqueOptions = new Set(options)
-  return uniqueOptions.size === options.length
-}, {
-  message: 'All options must be unique',
-  path: ['Option A']
-})
-
+export const OPTION_LABEL_LIST = OPTION_LABELS
 export type QuestionFormData = z.infer<typeof questionSchema>
 export type QuestionFiltersData = z.infer<typeof questionFiltersSchema>
-export type BulkImportRowData = z.infer<typeof bulkImportRowSchema>

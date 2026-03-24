@@ -1,0 +1,57 @@
+# ==========================================
+# DEPENDABOT CONFIGURATION
+# ==========================================
+# Automated dependency updates
+
+version: 2
+updates:
+  # ==========================================
+  # npm Dependencies
+  # ==========================================
+  - package-ecosystem: "npm"
+    directory: "/utme-master-backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "utme-master-maintainers"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore(deps)"
+    pull-request-branch-name:
+      separator: "-"
+
+  # ==========================================
+  # Docker Dependencies
+  # ==========================================
+  - package-ecosystem: "docker"
+    directory: "/utme-master-backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # ==========================================
+  # GitHub Actions
+  # ==========================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"

@@ -33,17 +33,18 @@ export default function QuestionCard({
     })
   }
 
-  const truncateText = (text: string, maxLength: number = 100) => {
+  const truncateText = (text: string | undefined, maxLength: number = 100) => {
+    if (!text) return ''
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
   }
 
   const getCorrectAnswerText = () => {
     switch (question.correctAnswer) {
-      case 'A': return question.optionA
-      case 'B': return question.optionB
-      case 'C': return question.optionC
-      case 'D': return question.optionD
+      case 'A': return question.optionA || ''
+      case 'B': return question.optionB || ''
+      case 'C': return question.optionC || ''
+      case 'D': return question.optionD || ''
       default: return ''
     }
   }
@@ -195,10 +196,12 @@ export default function QuestionCard({
                 <span className="font-medium text-gray-600">Created:</span>
                 <span className="ml-2 text-gray-900">{formatDate(question.createdAt)}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Updated:</span>
-                <span className="ml-2 text-gray-900">{formatDate(question.updatedAt)}</span>
-              </div>
+              {question.updatedAt && (
+                <div>
+                  <span className="font-medium text-gray-600">Updated:</span>
+                  <span className="ml-2 text-gray-900">{formatDate(question.updatedAt)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

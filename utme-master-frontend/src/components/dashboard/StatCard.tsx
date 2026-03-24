@@ -1,32 +1,20 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import Card from '../ui/Card'
 import { StatCardProps } from '../../types/dashboard'
 
-export default function StatCard({ icon, label, value, change, trend }: StatCardProps) {
-  const getTrendIcon = () => {
-    if (!change) return null
-    
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="w-4 h-4 text-green-600" />
-      case 'down':
-        return <TrendingDown className="w-4 h-4 text-red-600" />
-      default:
-        return <Minus className="w-4 h-4 text-gray-400" />
-    }
-  }
+const StatCard = memo(function StatCard({ icon, label, value, change, trend }: StatCardProps) {
+  const trendIcon =
+    !change ? null :
+    trend === 'up' ? <TrendingUp className="w-4 h-4 text-green-600" /> :
+    trend === 'down' ? <TrendingDown className="w-4 h-4 text-red-600" /> :
+    <Minus className="w-4 h-4 text-gray-400" />
 
-  const getTrendColor = () => {
-    switch (trend) {
-      case 'up':
-        return 'text-green-600'
-      case 'down':
-        return 'text-red-600'
-      default:
-        return 'text-gray-500'
-    }
-  }
+  const trendColor =
+    trend === 'up' ? 'text-green-600' :
+    trend === 'down' ? 'text-red-600' :
+    'text-gray-500'
 
   return (
     <motion.div
@@ -43,16 +31,15 @@ export default function StatCard({ icon, label, value, change, trend }: StatCard
                 {typeof icon === 'object' && icon !== null ? icon : null}
               </div>
             </div>
-            
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
               <p className="text-2xl font-bold text-gray-900">{value}</p>
             </div>
           </div>
-          
+
           {change && (
-            <div className={`flex items-center space-x-1 ${getTrendColor()}`}>
-              {getTrendIcon()}
+            <div className={`flex items-center space-x-1 ${trendColor}`}>
+              {trendIcon}
               <span className="text-sm font-medium">{change}</span>
             </div>
           )}
@@ -60,4 +47,6 @@ export default function StatCard({ icon, label, value, change, trend }: StatCard
       </Card>
     </motion.div>
   )
-}
+})
+
+export default StatCard

@@ -1,8 +1,3 @@
-// ==========================================
-// DEVELOPMENT SEED SCRIPT - FIXED VERSION
-// ==========================================
-// All TypeScript errors resolved, production-ready
-
 import { PrismaClient } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
@@ -17,63 +12,79 @@ async function main() {
     // CREATE SUPER ADMIN ACCOUNT
     // ==========================================
     console.log('👤 Creating super admin account...')
-    
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@utmemaster.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'Owner@1234';
 
-    const adminHash = await bcrypt.hash(adminPassword, 10);
+    const superAdminEmail = process.env.ADMIN_EMAIL || 'admin@owner.com'
+    const superAdminPassword = process.env.ADMIN_PASSWORD || 'Admin@1234'
+    const superAdminHash = await bcrypt.hash(superAdminPassword, 10)
 
-    const admin = await prisma.user.upsert({
-      where: { email: adminEmail },
+    const superAdmin = await prisma.user.upsert({
+      where: { email: superAdminEmail },
       update: {},
       create: {
-        email: adminEmail,
+        id: randomUUID(),
+        email: superAdminEmail,
+        password: superAdminHash,
         firstName: 'Super',
         lastName: 'Admin',
         role: 'ADMIN',
         licenseTier: 'ENTERPRISE',
         isActive: true,
-        id: randomUUID(),
-        password: adminHash,
-        role: 'ADMIN',
       },
-    });
+    })
+    console.log(`✅ Super admin created: ${superAdmin.email}\n`)
 
-    console.log(`Admin user created: ${admin.email}`);
-    // ... rest of the seed script
-  }
-
-    
     // ==========================================
     // CREATE ADMIN ACCOUNT
     // ==========================================
     console.log('👤 Creating admin account...')
-    
-    const adminPassword = await bcrypt.hash('Admin@123', 10)
+
+    const adminHash = await bcrypt.hash('Admin@123', 10)
     const admin = await prisma.user.upsert({
       where: { email: 'admin@utmemaster.com' },
       update: {},
       create: {
         id: randomUUID(),
         email: 'admin@utmemaster.com',
-        password: adminPassword,
+        password: adminHash,
         firstName: 'Admin',
         lastName: 'User',
         role: 'ADMIN',
         licenseTier: 'ENTERPRISE',
-        isActive: true
-      }
+        isActive: true,
+      },
     })
     console.log(`✅ Admin created: ${admin.email}\n`)
+
+    // ==========================================
+    // CREATE TEACHER ACCOUNT
+    // ==========================================
+    console.log('👩‍🏫 Creating teacher account...')
+
+    const teacherHash = await bcrypt.hash('Teacher@123', 10)
+    const teacher = await prisma.user.upsert({
+      where: { email: 'teacher@utmemaster.com' },
+      update: {},
+      create: {
+        id: randomUUID(),
+        email: 'teacher@utmemaster.com',
+        password: teacherHash,
+        firstName: 'Teacher',
+        lastName: 'Demo',
+        role: 'TEACHER',
+        licenseTier: 'PREMIUM',
+        isActive: true,
+      },
+    })
+    console.log(`✅ Teacher created: ${teacher.email}\n`)
 
     // ==========================================
     // CREATE STUDENT ACCOUNTS
     // ==========================================
     console.log('👤 Creating student accounts...')
-    
-    const studentPassword = await bcrypt.hash('Student@123', 10)
+
+    const studentHash = await bcrypt.hash('Student@123', 10)
     const students = []
-    
+
     for (let i = 1; i <= 3; i++) {
       const student = await prisma.user.upsert({
         where: { email: `student${i}@test.com` },
@@ -81,13 +92,13 @@ async function main() {
         create: {
           id: randomUUID(),
           email: `student${i}@test.com`,
-          password: studentPassword,
-          firstName: `Student`,
+          password: studentHash,
+          firstName: 'Student',
           lastName: `${i}`,
           role: 'STUDENT',
           licenseTier: 'TRIAL',
-          isActive: true
-        }
+          isActive: true,
+        },
       })
       students.push(student)
       console.log(`✅ Student created: ${student.email}`)
@@ -98,7 +109,7 @@ async function main() {
     // CREATE SUBJECTS
     // ==========================================
     console.log('📚 Creating subjects...')
-    
+
     const subjectData = [
       { name: 'English Language', code: 'ENG', description: 'Use of English and comprehension' },
       { name: 'Mathematics', code: 'MTH', description: 'Arithmetic, Algebra, Geometry, Calculus' },
@@ -109,7 +120,7 @@ async function main() {
       { name: 'Government', code: 'GOV', description: 'Political systems, Governance' },
       { name: 'Commerce', code: 'COM', description: 'Trade, Business, Accounting' },
       { name: 'Literature in English', code: 'LIT', description: 'Poetry, Prose, Drama' },
-      { name: 'CRK/IRK', code: 'CRK', description: 'Christian/Islamic Religious Knowledge' }
+      { name: 'CRK/IRK', code: 'CRK', description: 'Christian/Islamic Religious Knowledge' },
     ]
 
     const subjects = []
@@ -118,18 +129,16 @@ async function main() {
         const subject = await prisma.subject.upsert({
           where: { name: subjectInfo.name },
           update: {},
-          create: subjectInfo
+          create: subjectInfo,
         })
         subjects.push(subject)
         console.log(`✅ Subject created/found: ${subject.name}`)
       } catch (error: any) {
         if (error.code === 'P2002') {
-          const existingSubject = await prisma.subject.findUnique({
-            where: { name: subjectInfo.name }
-          })
-          if (existingSubject) {
-            subjects.push(existingSubject)
-            console.log(`✅ Subject already exists: ${existingSubject.name}`)
+          const existing = await prisma.subject.findUnique({ where: { name: subjectInfo.name } })
+          if (existing) {
+            subjects.push(existing)
+            console.log(`✅ Subject already exists: ${existing.name}`)
           }
         } else {
           throw error
@@ -142,7 +151,7 @@ async function main() {
     // CREATE TOPICS FOR SUBJECTS
     // ==========================================
     console.log('📖 Creating topics for subjects...')
-    
+
     const topicTemplates: Record<string, string[]> = {
       'Mathematics': ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
       'English Language': ['Grammar', 'Vocabulary', 'Comprehension', 'Essay Writing', 'Phonetics'],
@@ -153,28 +162,16 @@ async function main() {
       'Government': ['Political Systems', 'Governance', 'Constitutional Law', 'International Relations'],
       'Commerce': ['Accounting', 'Business Management', 'Marketing', 'Finance'],
       'Literature in English': ['Poetry', 'Prose', 'Drama', 'Literary Criticism'],
-      'CRK/IRK': ['Bible Studies', 'Islamic Studies', 'Moral Values', 'Religious Ethics']
+      'CRK/IRK': ['Bible Studies', 'Islamic Studies', 'Moral Values', 'Religious Ethics'],
     }
 
     for (const subject of subjects) {
       const topics = topicTemplates[subject.name] || []
       for (const topicName of topics) {
         try {
-          const existingTopic = await prisma.topic.findFirst({
-            where: {
-              name: topicName,
-              subjectId: subject.id
-            }
-          })
-
-          if (!existingTopic) {
-            await prisma.topic.create({
-              data: {
-                name: topicName,
-                subjectId: subject.id,
-                isActive: true
-              }
-            })
+          const existing = await prisma.topic.findFirst({ where: { name: topicName, subjectId: subject.id } })
+          if (!existing) {
+            await prisma.topic.create({ data: { name: topicName, subjectId: subject.id, isActive: true } })
           }
         } catch (error: any) {
           if (error.code !== 'P2002') {
@@ -190,7 +187,7 @@ async function main() {
     // CREATE DEFAULT TRIAL LICENSE
     // ==========================================
     console.log('🔐 Creating default TRIAL license...')
-    
+
     const licenseKey = 'UTME-TRIAL-' + randomUUID().substring(0, 8).toUpperCase()
     const license = await prisma.license.upsert({
       where: { licenseKey },
@@ -204,7 +201,7 @@ async function main() {
         maxStudents: 50,
         maxQuestions: 500,
         trialStartDate: new Date(),
-        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActivated: false,
         features: {
           whiteLabel: false,
@@ -212,9 +209,9 @@ async function main() {
           advancedAnalytics: false,
           bulkImport: false,
           apiAccess: false,
-          multipleAdmins: false
-        }
-      }
+          multipleAdmins: false,
+        },
+      },
     })
     console.log(`✅ License created: ${license.licenseKey}\n`)
 
@@ -223,36 +220,25 @@ async function main() {
     // ==========================================
     if (process.env.SEED_QUESTIONS === 'true') {
       console.log('❓ Creating sample questions...')
-      
       for (const subject of subjects) {
         for (let i = 1; i <= 5; i++) {
-          const questionText = `Sample ${subject.name} Question ${i}`
-          const options = {
-            A: { text: 'Option A' },
-            B: { text: 'Option B' },
-            C: { text: 'Option C' },
-            D: { text: 'Option D' }
-          }
-
           try {
             await prisma.question.create({
               data: {
-                questionText,
+                questionText: `Sample ${subject.name} Question ${i}`,
                 questionType: 'MCQ',
-                options,
+                options: { A: { text: 'Option A' }, B: { text: 'Option B' }, C: { text: 'Option C' }, D: { text: 'Option D' } },
                 correctAnswer: 'A',
                 explanation: 'This is the correct answer because...',
                 difficulty: i <= 2 ? 'EASY' : i <= 4 ? 'MEDIUM' : 'HARD',
                 examType: 'JAMB',
                 subjectId: subject.id,
                 createdBy: admin.id,
-                isActive: true
-              }
+                isActive: true,
+              },
             })
           } catch (error: any) {
-            if (error.code !== 'P2002') {
-              console.warn(`⚠️  Could not create question: ${error.message}`)
-            }
+            if (error.code !== 'P2002') console.warn(`⚠️  Could not create question: ${error.message}`)
           }
         }
         console.log(`✅ Sample questions created for: ${subject.name}`)
@@ -263,59 +249,15 @@ async function main() {
     }
 
     // ==========================================
-    // CREATE SAMPLE EXAMS - FIXED
+    // CREATE SAMPLE EXAMS
     // ==========================================
     console.log('📝 Creating sample exams...')
-    
+
     const examData = [
-      {
-        title: 'JAMB Mock Exam 2024',
-        description: 'Full JAMB mock examination with all subjects',
-        duration: 180,
-        totalMarks: 400,
-        passMarks: 200,
-        isPublished: true,
-        allowReview: true,
-        allowRetake: true,
-        subjectIds: subjects.map(s => s.id) as any
-      },
-      {
-        title: 'Mathematics Practice Exam',
-        description: 'Practice exam focusing on Mathematics',
-        duration: 60,
-        totalMarks: 100,
-        passMarks: 50,
-        isPublished: true,
-        allowReview: true,
-        allowRetake: true,
-        subjectIds: [subjects.find(s => s.code === 'MTH')?.id].filter(Boolean) as any
-      },
-      {
-        title: 'English Language Practice Exam',
-        description: 'Practice exam focusing on English Language',
-        duration: 60,
-        totalMarks: 100,
-        passMarks: 50,
-        isPublished: true,
-        allowReview: true,
-        allowRetake: true,
-        subjectIds: [subjects.find(s => s.code === 'ENG')?.id].filter(Boolean) as any
-      },
-      {
-        title: 'Science Subjects Exam',
-        description: 'Combined exam for Physics, Chemistry, and Biology',
-        duration: 120,
-        totalMarks: 300,
-        passMarks: 150,
-        isPublished: true,
-        allowReview: true,
-        allowRetake: true,
-        subjectIds: [
-          subjects.find(s => s.code === 'PHY')?.id,
-          subjects.find(s => s.code === 'CHM')?.id,
-          subjects.find(s => s.code === 'BIO')?.id
-        ].filter(Boolean) as any
-      }
+      { title: 'JAMB Mock Exam 2024', description: 'Full JAMB mock examination with all subjects', duration: 180, totalMarks: 400, passMarks: 200, subjectIds: subjects.map(s => s.id) as any },
+      { title: 'Mathematics Practice Exam', description: 'Practice exam focusing on Mathematics', duration: 60, totalMarks: 100, passMarks: 50, subjectIds: [subjects.find(s => s.code === 'MTH')?.id].filter(Boolean) as any },
+      { title: 'English Language Practice Exam', description: 'Practice exam focusing on English Language', duration: 60, totalMarks: 100, passMarks: 50, subjectIds: [subjects.find(s => s.code === 'ENG')?.id].filter(Boolean) as any },
+      { title: 'Science Subjects Exam', description: 'Combined exam for Physics, Chemistry, and Biology', duration: 120, totalMarks: 300, passMarks: 150, subjectIds: [subjects.find(s => s.code === 'PHY')?.id, subjects.find(s => s.code === 'CHM')?.id, subjects.find(s => s.code === 'BIO')?.id].filter(Boolean) as any },
     ]
 
     const exams = []
@@ -329,13 +271,13 @@ async function main() {
             totalMarks: examInfo.totalMarks,
             passMarks: examInfo.passMarks,
             totalQuestions: 40,
-            isPublished: examInfo.isPublished,
-            allowReview: examInfo.allowReview,
-            allowRetake: examInfo.allowRetake,
+            isPublished: true,
+            allowReview: true,
+            allowRetake: true,
             createdBy: admin.id,
             subjectIds: examInfo.subjectIds,
-            isActive: true
-          }
+            isActive: true,
+          },
         })
         exams.push(exam)
         console.log(`✅ Exam created: ${exam.title}`)
@@ -352,53 +294,13 @@ async function main() {
     console.log('🎉 SEEDING COMPLETED SUCCESSFULLY!')
     console.log('═'.repeat(60))
     console.log()
-    
-    console.log('📊 Summary:')
-    console.log(`   ✅ 1 super admin account created`)
-    console.log(`   ✅ 1 admin account created`)
-    console.log(`   ✅ ${students.length} student accounts created`)
-    console.log(`   ✅ ${subjects.length} subjects created`)
-    console.log(`   ✅ Topics created for all subjects`)
-    console.log(`   ✅ ${exams.length} sample exams created`)
-    console.log(`   ✅ 1 TRIAL license created`)
-    console.log(`   ${process.env.SEED_QUESTIONS === 'true' ? '✅' : '⏭️'} Sample questions ${process.env.SEED_QUESTIONS === 'true' ? 'created' : 'skipped'}`)
-    console.log()
-    
     console.log('👤 Login Credentials (DEVELOPMENT ONLY):')
-    console.log('   ⚠️  CHANGE THESE IMMEDIATELY IN PRODUCTION')
+    console.log(`   Super Admin  → ${superAdminEmail} / ${superAdminPassword}`)
+    console.log(`   Admin        → admin@utmemaster.com / Admin@123`)
+    console.log(`   Students     → student1-3@test.com / Student@123`)
     console.log()
-    console.log('   Super Admin (Controls Everything):')
-    console.log('   Email: admin@owner.com')
-    console.log('   Password: Admin@1234 (CHANGE THIS!)')
-    console.log()
-    console.log('   Admin:')
-    console.log('   Email: admin@utmemaster.com')
-    console.log('   Password: Admin@123 (CHANGE THIS!)')
-    console.log()
-    console.log('   Students:')
-    for (let i = 1; i <= 3; i++) {
-      console.log(`   Email: student${i}@test.com`)
-      console.log(`   Password: Student@123 (CHANGE THIS!)`)
-    }
-    console.log()
-    
-    console.log('🔐 License Information:')
-    console.log(`   License Key: ${license.licenseKey}`)
-    console.log(`   Tier: ${license.tier}`)
-    console.log(`   Trial Expires: ${license.trialEndDate?.toLocaleDateString()}`)
-    console.log()
-    
-    console.log('📚 Subjects Created:')
-    subjects.forEach(s => console.log(`   • ${s.name} (${s.code})`))
-    console.log()
-    
-    console.log('🚀 Next Steps:')
-    console.log('   1. Start backend: npm run dev')
-    console.log('   2. Start frontend: npm run dev')
-    console.log('   3. Login with admin account')
-    console.log('   4. Go to /admin/questions to create questions')
-    console.log('   5. Create exams and assign questions')
-    console.log('   6. Students can login and take exams')
+    console.log(`🔐 License Key: ${license.licenseKey} (expires ${license.trialEndDate?.toLocaleDateString()})`)
+    console.log(`📊 Created: ${subjects.length} subjects, ${exams.length} exams, ${students.length} students`)
     console.log()
 
   } catch (error) {
@@ -407,10 +309,9 @@ async function main() {
   } finally {
     await prisma.$disconnect()
   }
+}
 
-
-main()
-  .catch((error) => {
-    console.error('❌ Fatal error:', error)
-    process.exit(1)
-  })
+main().catch((error) => {
+  console.error('❌ Fatal error:', error)
+  process.exit(1)
+})

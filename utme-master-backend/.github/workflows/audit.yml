@@ -1,0 +1,46 @@
+# ==========================================
+# SECURITY AUDIT WORKFLOW
+# ==========================================
+# Run security audits on dependencies
+
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+          retention-days: 30
+
+      - name: Notify security issues
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "⚠️ Security audit found issues! Run `npm audit` to review."

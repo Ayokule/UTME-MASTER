@@ -1,6 +1,6 @@
 /**
  * Exams API Client
- * 
+ *
  * Handles all API communication for exam management and taking.
  * Includes error handling, logging, and type safety.
  */
@@ -12,6 +12,10 @@ import apiClient from './client'
 // ==========================================
 
 export interface Exam {
+  subjects: any
+  subjectCode: string
+  subjectName: string
+  status: string
   id: string
   title: string
   description: string
@@ -20,11 +24,14 @@ export interface Exam {
   totalMarks: number
   passMarks: number
   isPublished: boolean
+  isActive: boolean
   allowReview: boolean
   allowRetake: boolean
   startsAt?: string
   endsAt?: string
   createdAt: string
+  updatedAt?: string
+  _count?: { examQuestions: number }
 }
 
 export interface ExamQuestion {
@@ -88,55 +95,44 @@ function handleError(error: any, context: string): never {
     timestamp: new Date().toISOString()
   })
 
-  if (status === 400) {
-    throw new Error(message || 'Invalid request')
-  }
-  if (status === 401) {
-    throw new Error('Authentication failed. Please log in again.')
-  }
-  if (status === 403) {
-    throw new Error('Access denied.')
-  }
-  if (status === 404) {
-    throw new Error('Exam not found.')
-  }
-  if (status >= 500) {
-    throw new Error('Server error. Please try again later.')
-  }
+  if (status === 400) throw new Error(message || 'Invalid request')
+  if (status === 401) throw new Error('Authentication failed. Please log in again.')
+  if (status === 403) throw new Error('Access denied.')
+  if (status === 404) throw new Error('Exam not found.')
+  if (status >= 500) throw new Error('Server error. Please try again later.')
 
   throw new Error(message || 'An error occurred')
+}
+
+/**
+ * Normalize question options from JSON or separate fields
+ */
+export function normalizeOptions(question: any) {
+  if (Array.isArray(question.options)) return question.options
+  const optionsObj = question.options as any || {}
+  return [
+    { label: 'A', text: optionsObj.A?.text || question.optionA || '' },
+    { label: 'B', text: optionsObj.B?.text || question.optionB || '' },
+    { label: 'C', text: optionsObj.C?.text || question.optionC || '' },
+    { label: 'D', text: optionsObj.D?.text || question.optionD || '' }
+  ]
 }
 
 // ==========================================
 // API FUNCTIONS
 // ==========================================
 
-/**
- * Get all available exams for student
- * 
- * @returns List of available exams
- */
 export const getAvailableExams = async (): Promise<{ success: boolean; data: { exams: Exam[] } }> => {
   try {
     console.log('🔄 [EXAMS API] Fetching available exams...')
-    const response = await apiClient.get('/exams')
-    console.log('✅ [EXAMS API] Exams fetched successfully')
+    const response = await apiClient.get('/exams/available')
+    console.log('✅ [EXAMS API] Available exams fetched successfully')
     return response.data
   } catch (error) {
     handleError(error, 'Failed to fetch available exams')
   }
 }
 
-/**
- * Resume an exam (for already started exams)
- * 
- * Retrieves an exam that was previously started but not submitted.
- * If exam is already submitted, returns 400 error.
- * 
- * @param studentExamId - The student exam ID
- * @returns Exam data with saved answers
- * @throws Error if exam not found or already submitted
- */
 export const resumeExam = async (studentExamId: string): Promise<{ success: boolean; data: ExamData }> => {
   try {
     console.log('🔄 [EXAMS API] Resuming exam:', studentExamId)
@@ -144,7 +140,6 @@ export const resumeExam = async (studentExamId: string): Promise<{ success: bool
     console.log('✅ [EXAMS API] Exam resumed successfully')
     return response.data
   } catch (error: any) {
-    // If exam is already submitted, return 400 error
     if (error.response?.status === 400 && error.response?.data?.message?.includes('submitted')) {
       console.log('ℹ️ [EXAMS API] Exam already submitted, redirecting to results')
       throw error
@@ -153,31 +148,6 @@ export const resumeExam = async (studentExamId: string): Promise<{ success: bool
   }
 }
 
-/**
- * Start a practice exam
- * 
- * Creates a new practice exam with specified parameters.
- * 
- * @param params - Exam parameters
- * @param params.subject - Subject name (e.g., "Mathematics")
- * @param params.examType - Exam type (JAMB, WAEC, NECO)
- * @param params.difficulty - Difficulty level (EASY, MEDIUM, HARD)
- * @param params.questionCount - Number of questions
- * @param params.duration - Duration in minutes
- * @returns New exam data with student exam ID
- * @throws Error if parameters invalid or exam creation fails
- * 
- * Example:
- * ```typescript
- * const exam = await startPracticeExam({
- *   subject: 'Mathematics',
- *   examType: 'JAMB',
- *   difficulty: 'MEDIUM',
- *   questionCount: 40,
- *   duration: 60
- * })
- * ```
- */
 export const startPracticeExam = async (params: {
   subject: string
   examType: 'JAMB' | 'WAEC' | 'NECO'
@@ -195,15 +165,6 @@ export const startPracticeExam = async (params: {
   }
 }
 
-/**
- * Start an exam
- * 
- * Initializes an exam and starts the timer on the backend.
- * 
- * @param examId - The exam ID to start
- * @returns Exam data with questions and metadata
- * @throws Error if exam not found or already started
- */
 export const startExam = async (examId: string): Promise<{ success: boolean; data: ExamData }> => {
   try {
     console.log('🔄 [EXAMS API] Starting exam:', examId)
@@ -215,19 +176,6 @@ export const startExam = async (examId: string): Promise<{ success: boolean; dat
   }
 }
 
-/**
- * Save an answer during exam
- * 
- * Saves a single answer and tracks time spent on the question.
- * Multiple saves are batched on the backend.
- * 
- * @param studentExamId - The student exam ID
- * @param questionId - The question ID
- * @param answer - The answer object
- * @param timeSpent - Time spent on this question in seconds
- * @returns Success response
- * @throws Error if save fails
- */
 export const submitAnswer = async (
   studentExamId: string,
   questionId: string,
@@ -236,46 +184,22 @@ export const submitAnswer = async (
 ): Promise<{ success: boolean; data: any }> => {
   try {
     console.log('🔄 [EXAMS API] Saving answer for question:', questionId)
-    const response = await apiClient.post(`/exams/${studentExamId}/answers`, {
-      questionId,
-      answer,
-      timeSpent
-    })
+    const response = await apiClient.post(`/exams/${studentExamId}/answers`, { questionId, answer, timeSpent })
     console.log('✅ [EXAMS API] Answer saved successfully')
     return response.data
   } catch (error: any) {
-    // Log but don't throw - answer save failures shouldn't break the exam
     console.error('⚠️ [EXAMS API] Failed to save answer:', error.message)
     return { success: false, data: null }
   }
 }
 
-/**
- * Submit exam
- * 
- * Submits the exam and calculates results.
- * Can be called manually or automatically when time runs out.
- * 
- * @param studentExamId - The student exam ID
- * @param autoSubmit - Whether this is an auto-submit (time ran out)
- * @returns Exam results
- * @throws Error if submission fails
- * 
- * Example:
- * ```typescript
- * const results = await submitExam('exam-123')
- * navigate(`/student/results/${results.data.studentExamId}`)
- * ```
- */
 export const submitExam = async (
   studentExamId: string,
   autoSubmit: boolean = false
 ): Promise<{ success: boolean; data: ExamResults }> => {
   try {
     console.log('🔄 [EXAMS API] Submitting exam:', studentExamId, { autoSubmit })
-    const response = await apiClient.post(`/exams/${studentExamId}/submit`, {
-      autoSubmit
-    })
+    const response = await apiClient.post(`/exams/${studentExamId}/submit`, { autoSubmit })
     console.log('✅ [EXAMS API] Exam submitted successfully')
     return response.data
   } catch (error) {
@@ -283,15 +207,6 @@ export const submitExam = async (
   }
 }
 
-/**
- * Get exam results
- * 
- * Retrieves results for a completed exam.
- * 
- * @param studentExamId - The student exam ID
- * @returns Exam results
- * @throws Error if results not found
- */
 export const getExamResults = async (studentExamId: string): Promise<{ success: boolean; data: ExamResults }> => {
   try {
     console.log('🔄 [EXAMS API] Fetching exam results:', studentExamId)
@@ -303,15 +218,6 @@ export const getExamResults = async (studentExamId: string): Promise<{ success: 
   }
 }
 
-/**
- * Get review questions (after exam completion)
- * 
- * Retrieves detailed question data for review after exam completion.
- * 
- * @param studentExamId - The student exam ID
- * @returns Review questions with explanations
- * @throws Error if review data not found
- */
 export const getReviewQuestions = async (studentExamId: string): Promise<{ success: boolean; data: any }> => {
   try {
     console.log('🔄 [EXAMS API] Fetching review questions:', studentExamId)
@@ -323,74 +229,50 @@ export const getReviewQuestions = async (studentExamId: string): Promise<{ succe
   }
 }
 
-/**
- * Create exam (admin only)
- * 
- * Creates a new exam with questions.
- * 
- * @param examData - Exam data
- * @returns Created exam
- * @throws Error if creation fails or user not authorized
- */
-export const createExam = async (examData: any): Promise<{ success: boolean; data: any }> => {
+export const getAdminExams = async (): Promise<{ success: boolean; data: { exams: Exam[] } }> => {
   try {
-    console.log('🔄 [EXAMS API] Creating exam...')
-    const response = await apiClient.post('/exams', examData)
-    console.log('✅ [EXAMS API] Exam created successfully')
+    console.log('🔄 [EXAMS API] Fetching all exams (admin)...')
+    const response = await apiClient.get('/exams')
+    console.log('✅ [EXAMS API] Admin exams fetched successfully')
     return response.data
   } catch (error) {
-    handleError(error, 'Failed to create exam')
+    handleError(error, 'Failed to fetch admin exams')
   }
 }
 
-
-// ==========================================
-// UTILITY FUNCTIONS
-// ==========================================
-
-/**
- * Normalize question options from JSON or separate fields
- * Ensures consistent format across the app
- * 
- * @param question - Question object with options
- * @returns Normalized options array
- * 
- * Example:
- * ```typescript
- * const options = normalizeOptions(question)
- * // Returns: [
- * //   { label: 'A', text: 'First option' },
- * //   { label: 'B', text: 'Second option' },
- * //   { label: 'C', text: 'Third option' },
- * //   { label: 'D', text: 'Fourth option' }
- * // ]
- * ```
- */
-export function normalizeOptions(question: any) {
-  // If options is already an array, return as is
-  if (Array.isArray(question.options)) {
-    return question.options
+export const updateExam = async (examId: string, data: Partial<Exam> & Record<string, any>): Promise<{ success: boolean; data: any }> => {
+  try {
+    console.log('🔄 [EXAMS API] Updating exam:', examId)
+    const response = await apiClient.put(`/exams/${examId}`, data)
+    console.log('✅ [EXAMS API] Exam updated successfully')
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to update exam')
   }
-
-  // If options is JSON object, convert to array
-  const optionsObj = question.options as any || {}
-  return [
-    { label: 'A', text: optionsObj.A?.text || question.optionA || '' },
-    { label: 'B', text: optionsObj.B?.text || question.optionB || '' },
-    { label: 'C', text: optionsObj.C?.text || question.optionC || '' },
-    { label: 'D', text: optionsObj.D?.text || question.optionD || '' }
-  ]
 }
 
-/**
- * Retake an exam
- * 
- * Creates a new exam session for retaking
- * 
- * @param studentExamId - The previous student exam ID
- * @returns New exam data with new student exam ID
- * @throws Error if retakes not allowed
- */
+export const deleteExam = async (examId: string): Promise<{ success: boolean; data: any }> => {
+  try {
+    console.log('🔄 [EXAMS API] Deleting exam:', examId)
+    const response = await apiClient.delete(`/exams/${examId}`)
+    console.log('✅ [EXAMS API] Exam deleted successfully')
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to delete exam')
+  }
+}
+
+export const getExamDetails = async (examId: string): Promise<{ success: boolean; data: any }> => {
+  try {
+    console.log('🔄 [EXAMS API] Fetching exam details:', examId)
+    const response = await apiClient.get(`/exams/${examId}/statistics`)
+    console.log('✅ [EXAMS API] Exam details fetched successfully')
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to fetch exam details')
+  }
+}
+
 export const retakeExam = async (studentExamId: string): Promise<{ success: boolean; data: any }> => {
   try {
     console.log('🔄 [EXAMS API] Retaking exam:', studentExamId)
@@ -402,15 +284,51 @@ export const retakeExam = async (studentExamId: string): Promise<{ success: bool
   }
 }
 
-/**
- * Create exam (admin only)
- * 
- * Creates a new exam with specified configuration
- * 
- * @param examData - Exam configuration
- * @returns Created exam
- * @throws Error if user not authorized or data invalid
- */
+export const reportFlaggedQuestions = async (studentExamId: string, flaggedQuestionIds: string[]): Promise<{ success: boolean; data: any }> => {
+  try {
+    const response = await apiClient.post(`/exams/${studentExamId}/flag-questions`, { flaggedQuestionIds })
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to report flagged questions')
+  }
+}
+
+export const getFlaggedQuestions = async (params?: { status?: string; examId?: string }): Promise<{ success: boolean; data: { flaggedQuestions: any[]; total: number } }> => {
+  try {
+    const response = await apiClient.get('/exams/flagged-questions', { params })
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to fetch flagged questions')
+  }
+}
+
+export const updateFlaggedQuestionStatus = async (flagId: string, status: 'REVIEWED' | 'DISMISSED'): Promise<{ success: boolean; data: any }> => {
+  try {
+    const response = await apiClient.patch(`/exams/flagged-questions/${flagId}`, { status })
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to update flagged question status')
+  }
+}
+
+export const assignQuestionsToExam = async (examId: string, questionIds: string[]): Promise<{ success: boolean; data: any }> => {
+  try {
+    const response = await apiClient.put(`/exams/${examId}/questions`, { questionIds })
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to assign questions')
+  }
+}
+
+export const getExamQuestionIds = async (examId: string): Promise<{ success: boolean; data: { questionIds: string[] } }> => {
+  try {
+    const response = await apiClient.get(`/exams/${examId}/questions`)
+    return response.data
+  } catch (error) {
+    handleError(error, 'Failed to get exam questions')
+  }
+}
+
 export const createExamAdmin = async (examData: any): Promise<{ success: boolean; data: any }> => {
   try {
     console.log('🔄 [EXAMS API] Creating exam...')
@@ -422,19 +340,10 @@ export const createExamAdmin = async (examData: any): Promise<{ success: boolean
   }
 }
 
-/**
- * Get exam statistics (admin only)
- * 
- * Retrieves performance statistics for an exam
- * 
- * @param examId - The exam ID
- * @returns Exam statistics
- * @throws Error if exam not found
- */
 export const getExamStats = async (examId: string): Promise<{ success: boolean; data: any }> => {
   try {
     console.log('🔄 [EXAMS API] Fetching exam statistics:', examId)
-    const response = await apiClient.get(`/api/exams/${examId}/statistics`)
+    const response = await apiClient.get(`/exams/${examId}/statistics`)
     console.log('✅ [EXAMS API] Statistics fetched successfully')
     return response.data
   } catch (error) {

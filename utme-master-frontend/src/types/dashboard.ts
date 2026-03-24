@@ -105,12 +105,12 @@ export interface RecentActivity {
  * 
  * @property name - Student's full name
  * @property streak_days - Consecutive days of study
- * @property license_tier - Subscription level (FREE, TRIAL, PREMIUM, ENTERPRISE)
+ * @property license_tier - Subscription level (TRIAL, BASIC, PREMIUM, ENTERPRISE)
  */
 export interface StudentInfo {
   name: string
   streak_days: number
-  license_tier: 'FREE' | 'TRIAL' | 'PREMIUM' | 'ENTERPRISE'
+  license_tier: 'TRIAL' | 'BASIC' | 'PREMIUM' | 'ENTERPRISE'
 }
 
 // ==========================================

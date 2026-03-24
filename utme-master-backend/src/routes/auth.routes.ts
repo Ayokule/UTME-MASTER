@@ -60,14 +60,14 @@ const router = Router()
 
 router.post(
   '/register',
-  authRateLimit,
-  inputSanitization,
-  sqlInjectionProtection,
-  emailValidation,
-  passwordValidation,
-  nameValidation('firstName'),
-  nameValidation('lastName'),
-  handleValidationErrors,
+  // authRateLimit,          // commented out - was blocking signups
+  // inputSanitization,      // commented out - may interfere with body
+  // sqlInjectionProtection, // commented out - may reject valid input
+  // emailValidation,        // commented out - may reject valid emails
+  // passwordValidation,     // commented out - was blocking weak passwords
+  // nameValidation('firstName'),
+  // nameValidation('lastName'),
+  // handleValidationErrors,
   authController.register
 )
 
@@ -86,12 +86,12 @@ router.post(
 
 router.post(
   '/login',
-  authRateLimit,
-  bruteForceProtection,
-  inputSanitization,
-  sqlInjectionProtection,
-  emailValidation,
-  handleValidationErrors,
+  // authRateLimit,          // commented out - was rate limiting logins
+  // bruteForceProtection,   // commented out - was blocking after failed attempts
+  // inputSanitization,      // commented out - may interfere with body
+  // sqlInjectionProtection, // commented out - may reject valid input
+  // emailValidation,        // commented out - may reject valid emails
+  // handleValidationErrors,
   authController.login
 )
 

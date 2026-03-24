@@ -1,145 +1,92 @@
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
+import { memo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Button from './Button'
 
-interface PaginationProps {
-  currentPage: number
+interface Props {
+  page: number
   totalPages: number
-  onPageChange: (page: number) => void
-  showPageSize?: boolean
-  pageSize?: number
-  onPageSizeChange?: (size: number) => void
+  hasNext: boolean
+  hasPrev: boolean
+  onNext: () => void
+  onPrev: () => void
+  onGoTo?: (n: number) => void
   totalItems?: number
+  pageSize?: number
 }
 
-export default function Pagination({
-  currentPage,
-  totalPages,
-  onPageChange,
-  showPageSize = true,
-  pageSize = 20,
-  onPageSizeChange,
-  totalItems
-}: PaginationProps) {
-  const getVisiblePages = () => {
-    const delta = 2
-    const range = []
-    const rangeWithDots = []
+const Pagination = memo(function Pagination({
+  page, totalPages, hasNext, hasPrev, onNext, onPrev, onGoTo,
+  totalItems, pageSize = 20
+}: Props) {
+  if (totalPages <= 1) return null
 
-    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
-      range.push(i)
-    }
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, totalItems ?? page * pageSize)
 
-    if (currentPage - delta > 2) {
-      rangeWithDots.push(1, '...')
-    } else {
-      rangeWithDots.push(1)
-    }
-
-    rangeWithDots.push(...range)
-
-    if (currentPage + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages)
-    } else if (totalPages > 1) {
-      rangeWithDots.push(totalPages)
-    }
-
-    return rangeWithDots
-  }
-
-  const visiblePages = getVisiblePages()
-
-  const startItem = (currentPage - 1) * pageSize + 1
-  const endItem = Math.min(currentPage * pageSize, totalItems || 0)
+  // Show at most 5 page numbers around current page
+  const pages: number[] = []
+  const start = Math.max(1, page - 2)
+  const end = Math.min(totalPages, page + 2)
+  for (let i = start; i <= end; i++) pages.push(i)
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-t border-gray-200">
-      {/* Results Info */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 order-2 sm:order-1">
-        {totalItems && (
-          <p className="text-sm text-gray-700">
-            Showing <span className="font-medium">{startItem}</span> to{' '}
-            <span className="font-medium">{endItem}</span> of{' '}
-            <span className="font-medium">{totalItems}</span> results
-          </p>
-        )}
-        
-        {/* Page Size Selector */}
-        {showPageSize && onPageSizeChange && (
-          <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-700">Show:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
-              className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        )}
-      </div>
+    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+      {totalItems != null && (
+        <p className="text-sm text-gray-600">
+          Showing {from}–{to} of {totalItems}
+        </p>
+      )}
 
-      {/* Pagination Controls */}
-      <div className="flex items-center space-x-2 order-1 sm:order-2">
-        {/* Previous Button */}
+      <div className="flex items-center gap-1 ml-auto">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="flex items-center space-x-1"
+          onClick={onPrev}
+          disabled={!hasPrev}
+          className="flex items-center gap-1"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Previous</span>
+          Prev
         </Button>
 
-        {/* Page Numbers */}
-        <div className="hidden sm:flex items-center space-x-1">
-          {visiblePages.map((page, index) => {
-            if (page === '...') {
-              return (
-                <div key={`dots-${index}`} className="px-3 py-2">
-                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                </div>
-              )
-            }
+        {start > 1 && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => onGoTo?.(1)}>1</Button>
+            {start > 2 && <span className="px-1 text-gray-400">…</span>}
+          </>
+        )}
 
-            const pageNumber = page as number
-            const isActive = pageNumber === currentPage
+        {pages.map(n => (
+          <Button
+            key={n}
+            size="sm"
+            variant={n === page ? 'primary' : 'outline'}
+            onClick={() => onGoTo?.(n)}
+          >
+            {n}
+          </Button>
+        ))}
 
-            return (
-              <Button
-                key={pageNumber}
-                variant={isActive ? 'primary' : 'ghost'}
-                size="sm"
-                onClick={() => onPageChange(pageNumber)}
-                className={`min-w-[40px] ${isActive ? '' : 'hover:bg-gray-100'}`}
-              >
-                {pageNumber}
-              </Button>
-            )
-          })}
-        </div>
+        {end < totalPages && (
+          <>
+            {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+            <Button variant="outline" size="sm" onClick={() => onGoTo?.(totalPages)}>{totalPages}</Button>
+          </>
+        )}
 
-        {/* Mobile Page Info */}
-        <div className="sm:hidden px-3 py-2 text-sm text-gray-700">
-          {currentPage} of {totalPages}
-        </div>
-
-        {/* Next Button */}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="flex items-center space-x-1"
+          onClick={onNext}
+          disabled={!hasNext}
+          className="flex items-center gap-1"
         >
-          <span className="hidden sm:inline">Next</span>
+          Next
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
     </div>
   )
-}
+})
+
+export default Pagination

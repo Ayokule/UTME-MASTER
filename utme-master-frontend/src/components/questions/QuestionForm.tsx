@@ -1,32 +1,87 @@
 import { useState, useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { motion } from 'framer-motion'
-import { Save, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react'
-import { questionSchema, QuestionFormData } from '../../schemas/question'
+import { z } from 'zod'
+import { Plus, Trash2, CheckCircle, AlertCircle, Save, ArrowLeft } from 'lucide-react'
 import { Question, CreateQuestionData, UpdateQuestionData } from '../../types/question'
-import { getSubjects, getTopicsBySubject } from '../../api/questions'
-import { showToast } from '../ui/Toast'
+import { getSubjects } from '../../api/questions'
 import Button from '../ui/Button'
-import Input from '../ui/Input'
 import Card from '../ui/Card'
-import Badge from '../ui/Badge'
-import ImageUpload from './ImageUpload'
-import RichTextEditor from '../RichTextEditor'
+import MinimalRichEditor from '../form/MinimalRichEditor'
 
-interface QuestionFormProps {
+// ── Schema ──────────────────────────────────────────────────────────────────
+const optionSchema = z.object({
+  label: z.string(),
+  text: z.string().min(1, 'Option text is required'),
+  isCorrect: z.boolean()
+})
+
+const formSchema = z.object({
+  subject: z.string().min(1, 'Subject is required'),
+  topic: z.string().optional(),
+  questionText: z.string().min(10, 'Question must be at least 10 characters'),
+  options: z.array(optionSchema).min(2, 'At least 2 options required').max(10),
+  explanation: z.string().optional(),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
+  year: z.number().min(2000).max(2030).optional(),
+  examType: z.enum(['JAMB', 'WAEC', 'NECO']),
+  imageUrl: z.string().url().optional().or(z.literal(''))
+}).refine(d => d.options.some(o => o.isCorrect), {
+  message: 'Select at least one correct answer',
+  path: ['options']
+})
+
+type FormData = z.infer<typeof formSchema>
+
+// ── Option labels ────────────────────────────────────────────────────────────
+const LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+
+// ── Props ────────────────────────────────────────────────────────────────────
+interface Props {
   question?: Question
   onSubmit: (data: CreateQuestionData | UpdateQuestionData) => Promise<void>
   onCancel: () => void
   loading?: boolean
 }
 
-export default function QuestionForm({ question, onSubmit, onCancel, loading }: QuestionFormProps) {
-  const [subjects, setSubjects] = useState<string[]>([])
-  const [topics, setTopics] = useState<string[]>([])
-  const [selectedSubject, setSelectedSubject] = useState(question?.subject || '')
-  const [loadingSubjects, setLoadingSubjects] = useState(true)
-  const [loadingTopics, setLoadingTopics] = useState(false)
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const FALLBACK_SUBJECTS = [
+  'Mathematics', 'English Language', 'Physics', 'Chemistry', 'Biology',
+  'Economics', 'Government', 'Literature in English', 'Geography', 'History',
+  'Agricultural Science', 'Commerce', 'Accounting', 'Further Mathematics', 'CRS/IRS'
+]
+
+function buildDefaultOptions(q?: Question) {
+  // Already a proper array
+  if (Array.isArray(q?.options) && q!.options.length > 0) {
+    return q!.options.map(o => ({
+      label: o.label,
+      text: o.text || '',
+      isCorrect: o.isCorrect ?? (o.label === q!.correctAnswer)
+    }))
+  }
+  // Backend returns options as object { A: { text: '...' }, B: { text: '...' } }
+  if (q?.options && typeof q.options === 'object' && !Array.isArray(q.options)) {
+    const obj = q.options as Record<string, { text: string }>
+    return Object.entries(obj).map(([label, val]) => ({
+      label,
+      text: val?.text || '',
+      isCorrect: label === q.correctAnswer
+    }))
+  }
+  // Flat optionA/B/C/D fields
+  return [
+    { label: 'A', text: q?.optionA || '', isCorrect: q?.correctAnswer === 'A' },
+    { label: 'B', text: q?.optionB || '', isCorrect: q?.correctAnswer === 'B' },
+    { label: 'C', text: q?.optionC || '', isCorrect: q?.correctAnswer === 'C' },
+    { label: 'D', text: q?.optionD || '', isCorrect: q?.correctAnswer === 'D' },
+  ]
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+export default function QuestionForm({ question, onSubmit, onCancel, loading }: Props) {
+  const [subjects, setSubjects] = useState<string[]>(FALLBACK_SUBJECTS)
+  const [customSubject, setCustomSubject] = useState(false)
 
   const {
     register,
@@ -34,510 +89,345 @@ export default function QuestionForm({ question, onSubmit, onCancel, loading }: 
     control,
     watch,
     setValue,
+    reset,
     formState: { errors, isValid, isDirty }
-  } = useForm<QuestionFormData>({
-    resolver: zodResolver(questionSchema),
-    defaultValues: question ? {
-      subject: question.subject,
-      topic: question.topic || '',
-      questionText: question.questionText,
-      optionA: question.optionA,
-      optionB: question.optionB,
-      optionC: question.optionC,
-      optionD: question.optionD,
-      correctAnswer: question.correctAnswer,
-      explanation: question.explanation || '',
-      difficulty: question.difficulty,
-      year: question.year,
-      examType: question.examType,
-      imageUrl: question.imageUrl || ''
-    } : {
+  } = useForm<FormData, any, FormData>({
+    resolver: zodResolver(formSchema) as any,
+    mode: 'onChange',
+    defaultValues: {
       subject: '',
       topic: '',
       questionText: '',
-      optionA: '',
-      optionB: '',
-      optionC: '',
-      optionD: '',
-      correctAnswer: 'A',
+      options: [
+        { label: 'A', text: '', isCorrect: false },
+        { label: 'B', text: '', isCorrect: false },
+        { label: 'C', text: '', isCorrect: false },
+        { label: 'D', text: '', isCorrect: false },
+      ],
       explanation: '',
       difficulty: 'MEDIUM',
-      year: undefined,
       examType: 'JAMB',
       imageUrl: ''
     }
   })
 
-  const watchedSubject = watch('subject')
-  const watchedCorrectAnswer = watch('correctAnswer')
+  const { fields, append, remove } = useFieldArray({ control, name: 'options' })
+  const watchedOptions = watch('options')
 
-  // Load subjects on mount
+  // When question data arrives (edit mode), reset the form with its values
   useEffect(() => {
-    loadSubjects()
+    if (question) {
+      reset({
+        subject: question.subject || '',
+        topic: question.topic || '',
+        questionText: question.questionText || '',
+        options: buildDefaultOptions(question),
+        explanation: question.explanation || '',
+        difficulty: question.difficulty || 'MEDIUM',
+        year: question.year,
+        examType: question.examType || 'JAMB',
+        imageUrl: question.imageUrl || ''
+      })
+    }
+  }, [question, reset])
+
+  useEffect(() => {
+    getSubjects()
+      .then(list => { if (list?.length) setSubjects(list) })
+      .catch(() => {})
   }, [])
 
-  // Load topics when subject changes
-  useEffect(() => {
-    if (watchedSubject && watchedSubject !== selectedSubject) {
-      setSelectedSubject(watchedSubject)
-      loadTopics(watchedSubject)
-      setValue('topic', '') // Clear topic when subject changes
-    }
-  }, [watchedSubject, selectedSubject, setValue])
+  const setCorrect = (index: number) => {
+    watchedOptions.forEach((_, i) => setValue(`options.${i}.isCorrect`, i === index))
+  }
 
-  const loadSubjects = async () => {
-    try {
-      setLoadingSubjects(true)
-      const subjectList = await getSubjects()
-      setSubjects(subjectList)
-      
-      // If we have a question with a subject that's not in the list, add it
-      if (question?.subject && !subjectList.includes(question.subject)) {
-        setSubjects(prev => [...prev, question.subject!])
-      }
-    } catch (error) {
-      console.error('Failed to load subjects:', error)
-      showToast.error('Failed to load subjects')
-      
-      // Fallback to common subjects if API fails
-      const fallbackSubjects = ['Mathematics', 'English Language', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Government', 'Literature', 'Geography', 'History']
-      setSubjects(fallbackSubjects)
-      
-      // If we have a question subject, make sure it's included
-      if (question?.subject && !fallbackSubjects.includes(question.subject)) {
-        setSubjects(prev => [...prev, question.subject!])
-      }
-    } finally {
-      setLoadingSubjects(false)
+  const addOption = () => {
+    const nextLabel = LABELS[fields.length] || String.fromCharCode(65 + fields.length)
+    append({ label: nextLabel, text: '', isCorrect: false })
+  }
+
+  const removeOption = (index: number) => {
+    if (fields.length <= 2) return
+    // If removing the correct one, reset to first
+    if (watchedOptions[index]?.isCorrect) {
+      setValue('options.0.isCorrect', true)
+    }
+    remove(index)
+  }
+
+  const onFormSubmit = async (data: FormData) => {
+    const correctOpt = data.options.find(o => o.isCorrect)
+    const payload = {
+      ...data,
+      correctAnswer: correctOpt?.label || data.options[0].label,
+      imageUrl: data.imageUrl || undefined,
+      topic: data.topic || undefined,
+      year: data.year || undefined
+    }
+    if (question) {
+      await onSubmit({ id: question.id, ...payload } as UpdateQuestionData)
+    } else {
+      await onSubmit(payload as CreateQuestionData)
     }
   }
 
-  const loadTopics = async (subject: string) => {
-    try {
-      setLoadingTopics(true)
-      const topicList = await getTopicsBySubject(subject)
-      setTopics(topicList)
-      
-      // If we have a question with a topic that's not in the list, add it
-      if (question?.topic && !topicList.includes(question.topic)) {
-        setTopics(prev => [...prev, question.topic!])
-      }
-    } catch (error) {
-      console.error('Failed to load topics:', error)
-      setTopics([])
-    } finally {
-      setLoadingTopics(false)
-    }
-  }
-
-  const onFormSubmit = async (data: QuestionFormData) => {
-    try {
-      // Remove empty imageUrl
-      const submitData = {
-        ...data,
-        imageUrl: data.imageUrl || undefined,
-        topic: data.topic || undefined,
-        year: data.year || undefined
-      }
-
-      if (question) {
-        await onSubmit({ id: question.id, ...submitData } as UpdateQuestionData)
-      } else {
-        await onSubmit(submitData as CreateQuestionData)
-      }
-    } catch (error) {
-      // Error handling is done in parent component
-    }
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
-  }
+  const difficultyColors = { EASY: 'bg-green-100 text-green-700 border-green-300', MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-300', HARD: 'bg-red-100 text-red-700 border-red-300' }
+  const watchedDifficulty = watch('difficulty')
+  const watchedSubject = watch('subject')
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="max-w-4xl mx-auto"
-    >
-      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8">
-        {/* Header */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {question ? 'Edit Question' : 'Create New Question'}
-                </h2>
-                <p className="text-gray-600 mt-1">
-                  {question ? 'Update the question details below' : 'Fill in the details to create a new question'}
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {isDirty && (
-                  <Badge variant="warning" size="sm">
-                    Unsaved Changes
-                  </Badge>
-                )}
-                {isValid && (
-                  <Badge variant="success" size="sm">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Valid
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6 max-w-3xl mx-auto">
 
-        {/* Basic Information */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Basic Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Subject */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject *
-                </label>
-                {loadingSubjects ? (
-                  <div className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
-                    Loading subjects...
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      {...register('subject')}
-                      className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none ${
-                        errors.subject 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-200' 
-                          : 'border-gray-300 focus:border-primary-500 focus:ring-primary-200'
-                      }`}
-                    >
-                      <option value="">Select a subject</option>
-                      {subjects.map(subject => (
-                        <option key={subject} value={subject}>
-                          {subject}
-                        </option>
-                      ))}
-                      <option value="__custom__">Other (type custom subject)</option>
-                    </select>
-                    
-                    {/* Custom subject input */}
-                    {watchedSubject === '__custom__' && (
-                      <div className="mt-2">
-                        <Input
-                          placeholder="Enter custom subject name"
-                          onChange={(e) => {
-                            setValue('subject', e.target.value)
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-                {errors.subject && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                    {errors.subject.message}
-                  </p>
-                )}
-              </div>
+      {/* ── Status bar ── */}
+      <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-gray-700">
+            {question ? 'Edit Question' : 'New Question'}
+          </span>
+          {isDirty && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Unsaved</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {isValid && <span className="flex items-center gap-1 text-xs text-green-600"><CheckCircle className="w-3.5 h-3.5" />Ready</span>}
+          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${difficultyColors[watchedDifficulty]}`}>
+            {watchedDifficulty}
+          </span>
+        </div>
+      </div>
 
-              {/* Topic */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Topic (Optional)
-                </label>
-                {loadingTopics ? (
-                  <div className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
-                    Loading topics...
-                  </div>
-                ) : topics.length > 0 ? (
-                  <>
-                    <select
-                      {...register('topic')}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200 focus:outline-none"
-                    >
-                      <option value="">Select a topic</option>
-                      {topics.map(topic => (
-                        <option key={topic} value={topic}>
-                          {topic}
-                        </option>
-                      ))}
-                      <option value="__custom__">Other (type custom topic)</option>
-                    </select>
-                    
-                    {/* Custom topic input */}
-                    {watch('topic') === '__custom__' && (
-                      <div className="mt-2">
-                        <Input
-                          placeholder="Enter custom topic name"
-                          onChange={(e) => {
-                            setValue('topic', e.target.value)
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <Input
-                    {...register('topic')}
-                    placeholder="Enter topic (optional)"
-                    disabled={!watchedSubject || watchedSubject === '__custom__'}
-                  />
-                )}
-                {!watchedSubject && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    Select a subject first to see available topics
-                  </p>
-                )}
-              </div>
+      {/* ── Metadata ── */}
+      <Card className="space-y-5">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Question Info</h3>
 
-              {/* Difficulty */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Difficulty *
-                </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Subject */}
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Subject <span className="text-red-500">*</span></label>
+            {!customSubject ? (
+              <div className="flex gap-2">
                 <select
-                  {...register('difficulty')}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200 focus:outline-none"
+                  {...register('subject')}
+                  className={`flex-1 px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.subject ? 'border-red-400' : 'border-gray-300'}`}
                 >
-                  <option value="EASY">Easy</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HARD">Hard</option>
+                  <option value="">Select subject...</option>
+                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <button type="button" onClick={() => setCustomSubject(true)} className="px-3 py-2 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+                  + Custom
+                </button>
               </div>
-
-              {/* Exam Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exam Type *
-                </label>
-                <select
-                  {...register('examType')}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200 focus:outline-none"
-                >
-                  <option value="JAMB">JAMB</option>
-                  <option value="WAEC">WAEC</option>
-                  <option value="NECO">NECO</option>
-                </select>
-              </div>
-
-              {/* Year */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Year (Optional)
-                </label>
-                <Input
-                  type="number"
-                  min="2000"
-                  max="2030"
-                  {...register('year', { valueAsNumber: true })}
-                  placeholder="e.g., 2023"
-                  error={errors.year?.message}
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type subject name..."
+                  value={watchedSubject}
+                  onChange={e => setValue('subject', e.target.value, { shouldValidate: true })}
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <button type="button" onClick={() => setCustomSubject(false)} className="px-3 py-2 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                  List
+                </button>
               </div>
-            </div>
-          </Card>
-        </motion.div>
+            )}
+            {errors.subject && <p className="mt-1 text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.subject.message}</p>}
+          </div>
 
-        {/* Question Content */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Question Content</h3>
-            
-            {/* Question Text */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Text *
-              </label>
-              <Controller
-                name="questionText"
-                control={control}
-                render={({ field }) => (
-                  <>
-                    <RichTextEditor
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Enter the question text here..."
-                      height="300px"
-                    />
-                    <p className="text-sm text-gray-500 mt-2">
-                      {field.value.length} / 5000 characters
-                    </p>
-                  </>
-                )}
-              />
-              {errors.questionText && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.questionText.message}
-                </p>
-              )}
-            </div>
+          {/* Topic */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Topic <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              {...register('topic')}
+              placeholder="e.g. Quadratic Equations"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-            {/* Image Upload */}
-            <div className="mb-6">
-              <Controller
-                name="imageUrl"
-                control={control}
-                render={({ field }) => (
-                  <ImageUpload
-                    value={field.value}
-                    onChange={field.onChange}
-                    disabled={loading}
-                  />
-                )}
-              />
-            </div>
-          </Card>
-        </motion.div>
+          {/* Exam Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Exam Type <span className="text-red-500">*</span></label>
+            <select
+              {...register('examType')}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="JAMB">JAMB</option>
+              <option value="WAEC">WAEC</option>
+              <option value="NECO">NECO</option>
+            </select>
+          </div>
 
-        {/* Answer Options */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Answer Options</h3>
-            
-            <div className="space-y-6">
-              {(['A', 'B', 'C', 'D'] as const).map((option) => (
-                <div key={option} className="flex items-start space-x-4">
-                  {/* Radio Button */}
-                  <div className="flex items-center pt-3">
-                    <input
-                      type="radio"
-                      {...register('correctAnswer')}
-                      value={option}
-                      className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500 focus:ring-2"
-                    />
+          {/* Difficulty */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Difficulty <span className="text-red-500">*</span></label>
+            <div className="flex gap-2">
+              {(['EASY', 'MEDIUM', 'HARD'] as const).map(d => (
+                <label key={d} className="flex-1 cursor-pointer">
+                  <input type="radio" value={d} {...register('difficulty')} className="sr-only" />
+                  <div className={`text-center py-2 rounded-lg border text-xs font-semibold transition-all ${watchedDifficulty === d ? difficultyColors[d] + ' ring-2 ring-offset-1 ring-current' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    {d}
                   </div>
-                  
-                  {/* Option Input with Rich Text Editor */}
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Option {option} *
-                      {watchedCorrectAnswer === option && (
-                        <Badge variant="success" size="sm" className="ml-2">
-                          Correct Answer
-                        </Badge>
-                      )}
-                    </label>
-                    <Controller
-                      name={`option${option}`}
-                      control={control}
-                      render={({ field }) => (
-                        <>
-                          <RichTextEditor
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder={`Enter option ${option}`}
-                            height="120px"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            {field.value.length} / 1000 characters
-                          </p>
-                        </>
-                      )}
-                    />
-                    {errors[`option${option}`] && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        {errors[`option${option}`]?.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                </label>
               ))}
             </div>
+          </div>
 
-            {errors.correctAnswer && (
-              <p className="mt-4 text-sm text-red-600 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.correctAnswer.message}
-              </p>
-            )}
-          </Card>
-        </motion.div>
-
-        {/* Explanation */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Explanation (Optional)</h3>
-            
-            <Controller
-              name="explanation"
-              control={control}
-              render={({ field }) => (
-                <>
-                  <RichTextEditor
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="Provide an explanation for the correct answer (optional)"
-                    height="200px"
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    {(field.value || '').length} / 3000 characters
-                  </p>
-                </>
-              )}
+          {/* Year */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Year <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              type="number"
+              min={2000}
+              max={2030}
+              placeholder="e.g. 2023"
+              {...register('year', { valueAsNumber: true })}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
-              This explanation will be shown to students after they answer the question.
-            </p>
-          </Card>
-        </motion.div>
+          </div>
+        </div>
+      </Card>
 
-        {/* Form Actions */}
-        <motion.div variants={itemVariants}>
-          <Card>
-            <div className="flex items-center justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="flex items-center space-x-2"
+      {/* ── Question Text ── */}
+      <Card className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Question Text</h3>
+        <Controller
+          name="questionText"
+          control={control}
+          render={({ field: f }) => (
+            <MinimalRichEditor
+              value={f.value}
+              onChange={f.onChange}
+              placeholder="Type the question here..."
+              rows={4}
+              error={errors.questionText?.message}
+            />
+          )}
+        />
+      </Card>
+
+      {/* ── Options ── */}
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Answer Options</h3>
+          <span className="text-xs text-gray-400">{fields.length} / 10 options</span>
+        </div>
+
+        <p className="text-xs text-gray-500">Click the circle on the left to mark the correct answer.</p>
+
+        <div className="space-y-3">
+          {fields.map((field, index) => {
+            const isCorrect = watchedOptions?.[index]?.isCorrect
+            return (
+              <div
+                key={field.id}
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${isCorrect ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Cancel</span>
-              </Button>
-              
-              <div className="flex items-center space-x-3">
-                {isDirty && (
-                  <p className="text-sm text-gray-500">
-                    You have unsaved changes
-                  </p>
-                )}
-                
-                <Button
-                  type="submit"
-                  loading={loading}
-                  disabled={!isValid}
-                  className="flex items-center space-x-2"
+                {/* Correct toggle */}
+                <button
+                  type="button"
+                  onClick={() => setCorrect(index)}
+                  className={`mt-2.5 w-5 h-5 rounded-full border-2 flex-shrink-0 transition-all ${isCorrect ? 'border-green-500 bg-green-500' : 'border-gray-300 hover:border-green-400'}`}
+                  title="Mark as correct answer"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{question ? 'Update Question' : 'Create Question'}</span>
-                </Button>
+                  {isCorrect && <span className="block w-full h-full rounded-full bg-white scale-[0.4]" />}
+                </button>
+
+                {/* Label badge */}
+                <span className={`mt-2 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                  {field.label}
+                </span>
+
+                {/* Rich text editor for option */}
+                <div className="flex-1">
+                  <Controller
+                    name={`options.${index}.text`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <MinimalRichEditor
+                        value={f.value}
+                        onChange={f.onChange}
+                        placeholder={`Option ${field.label}...`}
+                        rows={1}
+                        error={errors.options?.[index]?.text?.message}
+                      />
+                    )}
+                  />
+                </div>
+
+                {/* Remove button */}
+                {fields.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(index)}
+                    className="mt-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                    title="Remove option"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </div>
-          </Card>
-        </motion.div>
-      </form>
-    </motion.div>
+            )
+          })}
+        </div>
+
+        {/* Add option button */}
+        {fields.length < 10 && (
+          <button
+            type="button"
+            onClick={addOption}
+            className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Option {LABELS[fields.length] || ''}
+          </button>
+        )}
+
+        {(errors.options as any)?.message && (
+          <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{(errors.options as any).message}</p>
+        )}
+      </Card>
+
+      {/* ── Explanation ── */}
+      <Card className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          Explanation <span className="text-gray-400 font-normal normal-case">(optional)</span>
+        </h3>
+        <Controller
+          name="explanation"
+          control={control}
+          render={({ field: f }) => (
+            <MinimalRichEditor
+              value={f.value || ''}
+              onChange={f.onChange}
+              placeholder="Explain why the correct answer is right (shown to students after answering)..."
+              rows={3}
+            />
+          )}
+        />
+      </Card>
+
+      {/* ── Actions ── */}
+      <div className="flex items-center justify-between pt-2 pb-8">
+        <Button type="button" variant="outline" onClick={onCancel} className="flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" />Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={!isValid || loading}
+          className="flex items-center gap-2 min-w-[160px] justify-center"
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Saving...
+            </span>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              {question ? 'Update Question' : 'Create Question'}
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
   )
 }

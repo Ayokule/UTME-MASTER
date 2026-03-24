@@ -37,7 +37,7 @@ export const createExamSchema = z.object({
     .min(1, 'Must have at least 1 question')
     .max(200, 'Cannot exceed 200 questions'),
   
-  subjectIds: z.array(z.string().uuid())
+  subjectIds: z.array(z.string().min(1))
     .min(1, 'At least one subject must be selected')
     .max(10, 'Cannot select more than 10 subjects'),
   
@@ -104,32 +104,18 @@ export const createExamSchema = z.object({
 // SUBMIT ANSWER SCHEMA - ENHANCED
 // ==========================================
 export const submitAnswerSchema = z.object({
-  questionId: z.string()
-    .min(1, 'Question ID is required')
-    .uuid('Question ID must be a valid UUID'),
-  
-  // Enhanced answer validation
+  questionId: z.string().min(1, 'Question ID is required'),
+
   answer: z.union([
-    z.object({
-      selected: z.string().min(1, 'Selected answer is required')
-    }),
-    z.object({
-      selected: z.array(z.string()).min(1, 'At least one answer must be selected')
-    }),
-    z.object({
-      text: z.string().min(1, 'Text answer is required')
-    }),
-    z.any() // Fallback for other answer types
+    z.object({ selected: z.string().min(1) }),
+    z.object({ selected: z.array(z.string()).min(1) }),
+    z.object({ text: z.string().min(1) }),
+    z.any()
   ], {
     errorMap: () => ({ message: 'Answer is required and must be in valid format' })
   }),
-  
-  timeSpent: z.number()
-    .int()
-    .min(0, 'Time spent cannot be negative')
-    .max(3600, 'Time spent cannot exceed 1 hour')
-    .optional()
-    .default(0)
+
+  timeSpent: z.number().int().min(0).max(3600).optional().default(0)
 })
 
 // ==========================================

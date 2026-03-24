@@ -1,0 +1,52 @@
+# ==========================================
+# SONARQUBE CODE QUALITY
+# ==========================================
+# Code quality analysis with SonarQube
+
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  sonarqube:
+    name: SonarQube
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run SonarQube Analysis
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: utme-master-backend
+          args: >
+            -Dsonar.sources=src
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=**/*.test.ts
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+
+      - name: Upload coverage to SonarQube
+        if: github.event_name == 'push'
+        run: |
+          npm run coverage
+          curl -u ${{ secrets.SONAR_TOKEN }}: \
+            -F coverage=utme-master-backend/coverage/lcov.info \
+            ${{ secrets.SONAR_HOST_URL }}/api/coverage/upload

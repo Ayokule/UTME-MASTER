@@ -170,18 +170,23 @@ export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>
 // ==========================================
 // This works with the existing database structure
 
-// Simple create question schema (matches current database)
-export const createQuestionSchema = z.object({
-  subjectId: z.string().uuid('Invalid subject ID'),
+// Base object (no refine) — used for partial/update
+const createQuestionBaseSchema = z.object({
+  subject: z.string().min(1).optional(),
+  subjectId: z.string().uuid('Invalid subject ID').optional(),
+  topic: z.string().optional(),
   topicId: z.string().uuid('Invalid topic ID').optional().or(z.literal('')),
   questionText: z.string().min(10, 'Question must be at least 10 characters'),
-  optionA: z.string().min(1, 'Option A is required'),
-  optionB: z.string().min(1, 'Option B is required'),
-  optionC: z.string().min(1, 'Option C is required'),
-  optionD: z.string().min(1, 'Option D is required'),
-  correctAnswer: z.enum(['A', 'B', 'C', 'D'], {
-    required_error: 'Correct answer is required'
-  }),
+  options: z.array(z.object({
+    label: z.string(),
+    text: z.string().min(1),
+    isCorrect: z.boolean()
+  })).min(2).max(10).optional(),
+  optionA: z.string().optional(),
+  optionB: z.string().optional(),
+  optionC: z.string().optional(),
+  optionD: z.string().optional(),
+  correctAnswer: z.string().min(1, 'Correct answer is required'),
   explanation: z.string().optional().or(z.literal('')),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
   year: z.number().int().min(2000).max(2030).optional(),
@@ -189,31 +194,42 @@ export const createQuestionSchema = z.object({
   imageUrl: z.string().url().optional().or(z.literal(''))
 })
 
-// Update question schema (same as create, all fields optional)
-export const updateQuestionSchema = createQuestionSchema.partial()
+// Create schema — requires subject or subjectId
+export const createQuestionSchema = createQuestionBaseSchema.refine(
+  d => d.subject || d.subjectId,
+  { message: 'Subject is required', path: ['subject'] }
+)
+
+// Update schema — all fields optional, no subject requirement
+export const updateQuestionSchema = createQuestionBaseSchema.partial()
 
 // Query questions schema
 export const queryQuestionsSchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(500)).optional(),
   search: z.string().optional(),
-  subjectId: z.string().uuid().optional(),
-  topicId: z.string().uuid().optional(),
+  subjectId: z.string().min(1).optional(),
+  topicId: z.string().min(1).optional(),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
   year: z.string().transform(Number).pipe(z.number().int()).optional(),
-  examType: z.enum(['JAMB', 'WAEC', 'NECO']).optional(),
+  examType: z.enum(['JAMB', 'WAEC', 'NECO', 'MOCK', 'PRACTICE']).optional(),
   sortBy: z.enum(['createdAt', 'difficulty', 'year']).optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional()
-})
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  isActive: z.string().optional(),
+  subject: z.string().optional(),
+  topic: z.string().optional(),
+}).passthrough()
 
-// Bulk delete schema
+// Bulk delete schema — accepts UUID or CUID
 export const bulkDeleteSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(100)
+  ids: z.array(z.string().min(1)).min(1).max(100)
 })
 
-// Question ID parameter schema
+// Question ID parameter schema — accepts UUID or CUID
 export const questionIdSchema = z.object({
-  id: z.string().uuid()
+  params: z.object({
+    id: z.string().min(1, 'Question ID is required')
+  })
 })
 
 // ==========================================

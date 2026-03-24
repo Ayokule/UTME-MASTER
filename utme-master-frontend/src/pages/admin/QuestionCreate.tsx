@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, ArrowLeft } from 'lucide-react'
 import Layout from '../../components/Layout'
@@ -12,6 +12,10 @@ import Button from '../../components/ui/Button'
 
 export default function QuestionCreate() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isTeacher = location.pathname.startsWith('/teacher')
+  const listPath = isTeacher ? '/teacher/questions' : '/admin/questions'
+
   const { createQuestion } = useQuestionStore()
   const [loading, setLoading] = useState(false)
   
@@ -21,7 +25,7 @@ export default function QuestionCreate() {
     try {
       await createQuestion(data as CreateQuestionData)
       showToast.success('Question created successfully!')
-      navigate('/admin/questions')
+      navigate(listPath)
     } catch (error: any) {
       showToast.error(error.message || 'Failed to create question')
     } finally {
@@ -30,7 +34,7 @@ export default function QuestionCreate() {
   }
 
   const handleCancel = () => {
-    navigate('/admin/questions')
+    navigate(listPath)
   }
 
   return (

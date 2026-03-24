@@ -12,7 +12,7 @@
 import { Router } from 'express'
 import * as questionController from '../controllers/question.controller'
 import { authenticate, authorizeRole } from '../middleware/auth.middleware'
-import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware'
+import { validateBody, validateQuery, validate } from '../middleware/validation.middleware'
 import {
   createQuestionSchema,
   updateQuestionSchema,
@@ -69,7 +69,7 @@ router.get(
 
 router.get(
   '/:id',
-  validateParams(questionIdSchema),    // Validate :id param
+  validate(questionIdSchema),    // Validate :id param
   questionController.getQuestionById    // Handle request
 )
 
@@ -136,7 +136,7 @@ router.put(
   '/:id',
   authenticate,                                      // Must be logged in
   authorizeRole(['ADMIN', 'TEACHER']),              // Must be ADMIN or TEACHER
-  validateParams(questionIdSchema),                  // Validate :id
+  validate(questionIdSchema),                  // Validate :id
   validateBody(updateQuestionSchema),                // Validate body
   questionController.updateQuestion                  // Handle request
 )
@@ -162,7 +162,7 @@ router.delete(
   '/:id',
   authenticate,                                      // Must be logged in
   authorizeRole(['ADMIN', 'TEACHER']),              // Must be ADMIN or TEACHER
-  validateParams(questionIdSchema),                  // Validate :id
+  validate(questionIdSchema),                  // Validate :id
   questionController.deleteQuestion                  // Handle request
 )
 

@@ -10,6 +10,12 @@ interface AuthState {
   clearAuth: () => void
 }
 
+// Normalize user object — guard against role being an object instead of string
+const normalizeUser = (user: any): User => ({
+  ...user,
+  role: typeof user.role === 'object' ? (user.role?.name || user.role?.value || String(user.role)) : user.role,
+})
+
 // Initialize auth state from localStorage
 const initializeAuth = () => {
   try {
@@ -17,7 +23,8 @@ const initializeAuth = () => {
     const userStr = localStorage.getItem('user')
     
     if (token && userStr) {
-      const user = JSON.parse(userStr)
+      const raw = JSON.parse(userStr)
+      const user = normalizeUser(raw)
       return { user, token, isAuthenticated: true }
     }
   } catch (error) {
@@ -32,13 +39,15 @@ const initializeAuth = () => {
 export const useAuthStore = create<AuthState>((set) => ({
   ...initializeAuth(),
   setAuth: (user: User, token: string) => {
+    const clean = normalizeUser(user)
     localStorage.setItem('authToken', token)
-    localStorage.setItem('user', JSON.stringify(user))
-    set({ user, token, isAuthenticated: true })
+    localStorage.setItem('user', JSON.stringify(clean))
+    set({ user: clean, token, isAuthenticated: true })
   },
   updateUser: (user: User) => {
-    localStorage.setItem('user', JSON.stringify(user))
-    set((state) => ({ ...state, user }))
+    const clean = normalizeUser(user)
+    localStorage.setItem('user', JSON.stringify(clean))
+    set((state) => ({ ...state, user: clean }))
   },
   clearAuth: () => {
     localStorage.removeItem('authToken')

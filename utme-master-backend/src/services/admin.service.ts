@@ -119,6 +119,81 @@ export async function getDashboardData() {
 }
 
 // ==========================================
+// GET USER BY ID
+// ==========================================
+export async function getUserById(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, email: true, firstName: true, lastName: true,
+      role: true, phone: true, licenseTier: true, licenseExpiresAt: true,
+      isActive: true, lastLogin: true, createdAt: true, updatedAt: true,
+      _count: { select: { studentExams: true } }
+    }
+  })
+  if (!user) throw new NotFoundError('User not found')
+  return user
+}
+
+// ==========================================
+// UPDATE USER INFO
+// ==========================================
+export async function updateUser(userId: string, data: {
+  firstName?: string; lastName?: string; email?: string; phone?: string; role?: string
+}) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) throw new NotFoundError('User not found')
+
+  if (data.email && data.email !== user.email) {
+    const existing = await prisma.user.findUnique({ where: { email: data.email } })
+    if (existing) throw new ConflictError('Email already in use')
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.firstName && { firstName: data.firstName }),
+      ...(data.lastName && { lastName: data.lastName }),
+      ...(data.email && { email: data.email }),
+      ...(data.phone !== undefined && { phone: data.phone || null }),
+      ...(data.role && { role: data.role as any }),
+    },
+    select: {
+      id: true, email: true, firstName: true, lastName: true,
+      role: true, phone: true, licenseTier: true, isActive: true
+    }
+  })
+  logger.info(`User updated by admin: ${updated.email}`)
+  return updated
+}
+
+// ==========================================
+// RESET USER PASSWORD
+// ==========================================
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) throw new NotFoundError('User not found')
+  const hashed = await bcrypt.hash(newPassword, 10)
+  await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
+  logger.info(`Password reset by admin for user: ${user.email}`)
+}
+
+// ==========================================
+// TOGGLE USER ACTIVE
+// ==========================================
+export async function toggleUserActive(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) throw new NotFoundError('User not found')
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: !user.isActive },
+    select: { id: true, email: true, isActive: true, firstName: true, lastName: true }
+  })
+  logger.info(`User ${updated.isActive ? 'activated' : 'deactivated'}: ${updated.email}`)
+  return updated
+}
+
+// ==========================================
 // GET ALL USERS
 // ==========================================
 export async function getAllUsers(params: {

@@ -9,26 +9,39 @@ import { logger } from '../utils/logger'
 // ==========================================
 // GET OFFICIAL EXAMS DASHBOARD
 // ==========================================
-export async function getOfficialExamsDashboard(studentId: string) {
+export async function getOfficialExamsDashboard(studentId: string, page: number = 1, limit: number = 20) {
   try {
-    // Get all official exams (not practice)
-    const officialExams = await prisma.studentExam.findMany({
-      where: {
-        studentId,
-        status: 'SUBMITTED'
-      },
-      include: {
-        exam: {
-          select: {
-            title: true,
-            subjectIds: true
+    // Calculate pagination
+    const skip = (page - 1) * limit
+    
+    // Get all official exams (not practice) with pagination
+    const [officialExams, total] = await Promise.all([
+      prisma.studentExam.findMany({
+        where: {
+          studentId,
+          status: 'SUBMITTED'
+        },
+        include: {
+          exam: {
+            select: {
+              title: true,
+              subjectIds: true
+            }
           }
+        },
+        orderBy: {
+          submittedAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.studentExam.count({
+        where: {
+          studentId,
+          status: 'SUBMITTED'
         }
-      },
-      orderBy: {
-        submittedAt: 'desc'
-      }
-    })
+      })
+    ])
 
     // Calculate statistics
     const totalExams = officialExams.length
@@ -136,26 +149,39 @@ export async function getOfficialExamsDashboard(studentId: string) {
 // ==========================================
 // GET PRACTICE TESTS DASHBOARD
 // ==========================================
-export async function getPracticeTestsDashboard(studentId: string) {
+export async function getPracticeTestsDashboard(studentId: string, page: number = 1, limit: number = 20) {
   try {
-    // Get all practice tests
-    const practiceTests = await prisma.studentExam.findMany({
-      where: {
-        studentId,
-        status: 'SUBMITTED'
-      },
-      include: {
-        exam: {
-          select: {
-            title: true,
-            subjectIds: true
+    // Calculate pagination
+    const skip = (page - 1) * limit
+    
+    // Get all practice tests with pagination
+    const [practiceTests, total] = await Promise.all([
+      prisma.studentExam.findMany({
+        where: {
+          studentId,
+          status: 'SUBMITTED'
+        },
+        include: {
+          exam: {
+            select: {
+              title: true,
+              subjectIds: true
+            }
           }
+        },
+        orderBy: {
+          submittedAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.studentExam.count({
+        where: {
+          studentId,
+          status: 'SUBMITTED'
         }
-      },
-      orderBy: {
-        submittedAt: 'desc'
-      }
-    })
+      })
+    ])
 
     // Calculate statistics
     const totalTests = practiceTests.length

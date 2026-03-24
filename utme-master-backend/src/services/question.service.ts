@@ -226,82 +226,109 @@ export async function getQuestionById(id: string) {
 // ==========================================
 // CREATE NEW QUESTION
 // ==========================================
-export async function createQuestion(data: CreateQuestionInput, userId: string) {
+export async function createQuestion(data: any, userId: string) {
   // ==========================================
-  // STEP 1: Validate subject exists
+  // STEP 1: Resolve subject — accept name or UUID
   // ==========================================
-  const subject = await prisma.subject.findUnique({
-    where: { id: data.subjectId }
-  })
-  
+  let subject: any
+
+  if (data.subjectId) {
+    subject = await prisma.subject.findUnique({ where: { id: data.subjectId } })
+  } else if (data.subject) {
+    // Look up by name (case-insensitive)
+    subject = await prisma.subject.findFirst({
+      where: { name: { equals: data.subject, mode: 'insensitive' } }
+    })
+    // Auto-create subject if it doesn't exist
+    if (!subject) {
+      subject = await prisma.subject.create({
+        data: {
+          name: data.subject,
+          code: data.subject.substring(0, 4).toUpperCase()
+        }
+      })
+      logger.info(`Auto-created subject: ${data.subject}`)
+    }
+  }
+
   if (!subject) {
     throw new NotFoundError('Subject not found')
   }
-  
+
   // ==========================================
-  // STEP 2: Validate topic exists (if provided)
+  // STEP 2: Resolve topic (optional)
   // ==========================================
+  let topicId: string | null = null
+
   if (data.topicId) {
-    const topic = await prisma.topic.findUnique({
-      where: { id: data.topicId }
+    const topic = await prisma.topic.findUnique({ where: { id: data.topicId } })
+    if (!topic) throw new NotFoundError('Topic not found')
+    if (topic.subjectId !== subject.id) throw new BadRequestError('Topic does not belong to selected subject')
+    topicId = topic.id
+  } else if (data.topic) {
+    // Look up or create topic by name
+    let topic = await prisma.topic.findFirst({
+      where: { name: { equals: data.topic, mode: 'insensitive' }, subjectId: subject.id }
     })
-    
     if (!topic) {
-      throw new NotFoundError('Topic not found')
+      topic = await prisma.topic.create({
+        data: { name: data.topic, subjectId: subject.id }
+      })
     }
-    
-    // Check topic belongs to selected subject
-    if (topic.subjectId !== data.subjectId) {
-      throw new BadRequestError('Topic does not belong to selected subject')
+    topicId = topic.id
+  }
+
+  // ==========================================
+  // STEP 3: Resolve options — accept array or flat fields
+  // ==========================================
+  let optionsJson: Record<string, { text: string }>
+  let correctAnswer: string = data.correctAnswer
+
+  if (Array.isArray(data.options) && data.options.length >= 2) {
+    // Build options JSON from array
+    optionsJson = {}
+    data.options.forEach((opt: { label: string; text: string; isCorrect: boolean }) => {
+      optionsJson[opt.label] = { text: opt.text }
+    })
+    // Derive correctAnswer from isCorrect flag if not explicitly set
+    const correctOpt = data.options.find((o: any) => o.isCorrect)
+    if (correctOpt) correctAnswer = correctOpt.label
+  } else {
+    // Legacy flat fields
+    optionsJson = {
+      A: { text: data.optionA || '' },
+      B: { text: data.optionB || '' },
+      C: { text: data.optionC || '' },
+      D: { text: data.optionD || '' }
     }
   }
-  
+
   // ==========================================
-  // STEP 3: Create question in database
+  // STEP 4: Create question in database
   // ==========================================
   const question = await prisma.question.create({
     data: {
-      subjectId: data.subjectId,
-      topicId: data.topicId || null,
+      subjectId: subject.id,
+      topicId,
       questionText: data.questionText,
-      // Store options as JSON
-      options: {
-        A: { text: data.optionA },
-        B: { text: data.optionB },
-        C: { text: data.optionC },
-        D: { text: data.optionD }
-      },
-      correctAnswer: data.correctAnswer,
+      options: optionsJson,
+      correctAnswer,
       explanation: data.explanation || null,
       difficulty: data.difficulty,
       year: data.year || null,
       examType: data.examType,
       isActive: true,
-      createdBy: userId // Use actual user ID from auth
+      createdBy: userId
     },
     include: {
-      subject: {
-        select: {
-          id: true,
-          name: true,
-          code: true
-        }
-      },
-      topic: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
+      subject: { select: { id: true, name: true, code: true } },
+      topic: { select: { id: true, name: true } }
     }
   })
-  
+
   logger.info(`Question created: ${question.id} (${subject.name})`)
-  
-  // ==========================================
-  // STEP 4: Return formatted question
-  // ==========================================
-  const optionsObj = question.options as any || {}
+
+  const optObj = question.options as any || {}
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -309,11 +336,10 @@ export async function createQuestion(data: CreateQuestionInput, userId: string) 
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    // Convert JSON options to separate fields
-    optionA: optionsObj.A?.text || '',
-    optionB: optionsObj.B?.text || '',
-    optionC: optionsObj.C?.text || '',
-    optionD: optionsObj.D?.text || '',
+    optionA: optObj.A?.text || '',
+    optionB: optObj.B?.text || '',
+    optionC: optObj.C?.text || '',
+    optionD: optObj.D?.text || '',
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
@@ -326,93 +352,80 @@ export async function createQuestion(data: CreateQuestionInput, userId: string) 
 // ==========================================
 // UPDATE EXISTING QUESTION
 // ==========================================
-export async function updateQuestion(id: string, data: UpdateQuestionInput) {
-  // ==========================================
-  // STEP 1: Check question exists
-  // ==========================================
-  const existingQuestion = await prisma.question.findUnique({
-    where: { id }
-  })
-  
-  if (!existingQuestion) {
-    throw new NotFoundError('Question not found')
-  }
-  
-  // ==========================================
-  // STEP 2: Validate subject exists
-  // ==========================================
-  const subject = await prisma.subject.findUnique({
-    where: { id: data.subjectId }
-  })
-  
-  if (!subject) {
-    throw new NotFoundError('Subject not found')
-  }
-  
-  // ==========================================
-  // STEP 3: Validate topic exists (if provided)
-  // ==========================================
-  if (data.topicId) {
-    const topic = await prisma.topic.findUnique({
-      where: { id: data.topicId }
+export async function updateQuestion(id: string, data: any) {
+  const existingQuestion = await prisma.question.findUnique({ where: { id } })
+  if (!existingQuestion) throw new NotFoundError('Question not found')
+
+  // Resolve subject
+  let subjectId = existingQuestion.subjectId
+  if (data.subjectId) {
+    const s = await prisma.subject.findUnique({ where: { id: data.subjectId } })
+    if (!s) throw new NotFoundError('Subject not found')
+    subjectId = s.id
+  } else if (data.subject) {
+    let s = await prisma.subject.findFirst({
+      where: { name: { equals: data.subject, mode: 'insensitive' } }
     })
-    
-    if (!topic) {
-      throw new NotFoundError('Topic not found')
+    if (!s) {
+      s = await prisma.subject.create({
+        data: { name: data.subject, code: data.subject.substring(0, 4).toUpperCase() }
+      })
     }
-    
-    if (topic.subjectId !== data.subjectId) {
-      throw new BadRequestError('Topic does not belong to selected subject')
+    subjectId = s.id
+  }
+
+  // Resolve topic
+  let topicId: string | null = existingQuestion.topicId
+  if (data.topicId) {
+    topicId = data.topicId
+  } else if (data.topic) {
+    let t = await prisma.topic.findFirst({
+      where: { name: { equals: data.topic, mode: 'insensitive' }, subjectId }
+    })
+    if (!t) t = await prisma.topic.create({ data: { name: data.topic, subjectId } })
+    topicId = t.id
+  }
+
+  // Resolve options
+  let optionsUpdate: any = undefined
+  let correctAnswer = data.correctAnswer || existingQuestion.correctAnswer
+
+  if (Array.isArray(data.options) && data.options.length >= 2) {
+    optionsUpdate = {}
+    data.options.forEach((opt: any) => { optionsUpdate[opt.label] = { text: opt.text } })
+    const correctOpt = data.options.find((o: any) => o.isCorrect)
+    if (correctOpt) correctAnswer = correctOpt.label
+  } else if (data.optionA) {
+    optionsUpdate = {
+      A: { text: data.optionA },
+      B: { text: data.optionB },
+      C: { text: data.optionC },
+      D: { text: data.optionD }
     }
   }
-  
-  // ==========================================
-  // STEP 4: Update question in database
-  // ==========================================
+
   const question = await prisma.question.update({
     where: { id },
     data: {
-      subjectId: data.subjectId,
-      topicId: data.topicId || null,
-      questionText: data.questionText,
-      // Update options as JSON if provided
-      ...(data.optionA && {
-        options: {
-          A: { text: data.optionA },
-          B: { text: data.optionB },
-          C: { text: data.optionC },
-          D: { text: data.optionD }
-        }
-      }),
-      correctAnswer: data.correctAnswer,
-      explanation: data.explanation || null,
-      difficulty: data.difficulty,
-      year: data.year || null,
-      examType: data.examType
+      subjectId,
+      topicId,
+      questionText: data.questionText || existingQuestion.questionText,
+      ...(optionsUpdate && { options: optionsUpdate }),
+      correctAnswer,
+      explanation: data.explanation ?? existingQuestion.explanation,
+      difficulty: data.difficulty || existingQuestion.difficulty,
+      year: data.year ?? existingQuestion.year,
+      examType: data.examType || existingQuestion.examType
     },
     include: {
-      subject: {
-        select: {
-          id: true,
-          name: true,
-          code: true
-        }
-      },
-      topic: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
+      subject: { select: { id: true, name: true, code: true } },
+      topic: { select: { id: true, name: true } }
     }
   })
-  
+
   logger.info(`Question updated: ${question.id}`)
-  
-  // ==========================================
-  // STEP 5: Return formatted question
-  // ==========================================
-  const optionsObj = question.options as any || {}
+
+  const optObj = question.options as any || {}
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -420,11 +433,10 @@ export async function updateQuestion(id: string, data: UpdateQuestionInput) {
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    // Convert JSON options to separate fields
-    optionA: optionsObj.A?.text || '',
-    optionB: optionsObj.B?.text || '',
-    optionC: optionsObj.C?.text || '',
-    optionD: optionsObj.D?.text || '',
+    optionA: optObj.A?.text || '',
+    optionB: optObj.B?.text || '',
+    optionC: optObj.C?.text || '',
+    optionD: optObj.D?.text || '',
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,

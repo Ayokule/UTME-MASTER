@@ -18,9 +18,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   // If role is required and user doesn't have it, redirect to appropriate dashboard
   if (requiredRole) {
     const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    const userRole = typeof user.role === 'string' ? user.role : String((user.role as any)?.name || user.role)
     
-    if (!allowedRoles.includes(user.role)) {
-      const redirectPath = user.role === 'ADMIN' || user.role === 'TEACHER' ? '/admin/dashboard' : '/student/dashboard'
+    if (!allowedRoles.includes(userRole)) {
+      let redirectPath = '/student/dashboard'
+      if (userRole === 'ADMIN') redirectPath = '/admin/dashboard'
+      else if (userRole === 'TEACHER') redirectPath = '/teacher/dashboard'
       return <Navigate to={redirectPath} replace />
     }
   }

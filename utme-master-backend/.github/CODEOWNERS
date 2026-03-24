@@ -1,0 +1,25 @@
+# ==========================================
+# CODE OWNERS
+# ==========================================
+# Define who owns specific parts of the codebase
+
+# Backend
+@utme-master/backend-team utme-master-backend/
+
+# Frontend
+@utme-master/frontend-team utme-master-frontend/
+
+# Documentation
+@utme-master/docs-team docs/
+
+# Docker
+@utme-master/devops-team Dockerfile docker-compose*.yml .dockerignore
+
+# Configuration
+@utme-master/devops-team .github/ .gitignore .env*
+
+# Testing
+@utme-master/qe-team *.test.ts e2e/
+
+# API
+@utme-master/backend-team src/controllers/ src/routes/ src/services/

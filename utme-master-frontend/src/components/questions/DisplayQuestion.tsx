@@ -1,5 +1,8 @@
-import RichTextEditor from '../RichTextEditor'
+import { lazy, Suspense } from 'react'
 import { Question } from '../../types/question'
+
+// Lazy load RichTextEditor to reduce bundle size
+const RichTextEditor = lazy(() => import('../RichTextEditor'))
 
 interface DisplayQuestionProps {
   question: Question
@@ -12,12 +15,14 @@ export default function DisplayQuestion({ question, showExplanation = true }: Di
       {/* Question Text */}
       <div>
         <h2 className="text-xl font-bold mb-4">Question:</h2>
-        <RichTextEditor
-          value={question.questionText}
-          onChange={() => {}} // No-op for read-only
-          readOnly={true}
-          height="auto"
-        />
+        <Suspense fallback={<div className="bg-gray-100 rounded-lg animate-pulse h-32" />}>
+          <RichTextEditor
+            value={question.questionText}
+            onChange={() => {}} // No-op for read-only
+            readOnly={true}
+            height="auto"
+          />
+        </Suspense>
       </div>
 
       {/* Answer Options */}
@@ -38,12 +43,14 @@ export default function DisplayQuestion({ question, showExplanation = true }: Di
                   </span>
                 </div>
                 <div className="flex-1">
-                  <RichTextEditor
-                    value={optionValue as string}
-                    onChange={() => {}}
-                    readOnly={true}
-                    height="auto"
-                  />
+                  <Suspense fallback={<div className="bg-gray-100 rounded-lg animate-pulse h-16" />}>
+                    <RichTextEditor
+                      value={optionValue as string}
+                      onChange={() => {}}
+                      readOnly={true}
+                      height="auto"
+                    />
+                  </Suspense>
                 </div>
               </div>
             )
@@ -56,12 +63,14 @@ export default function DisplayQuestion({ question, showExplanation = true }: Di
         <div>
           <h3 className="text-lg font-semibold mt-6 mb-2">Explanation:</h3>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <RichTextEditor
-              value={question.explanation}
-              onChange={() => {}}
-              readOnly={true}
-              height="auto"
-            />
+            <Suspense fallback={<div className="bg-gray-100 rounded-lg animate-pulse h-24" />}>
+              <RichTextEditor
+                value={question.explanation}
+                onChange={() => {}}
+                readOnly={true}
+                height="auto"
+              />
+            </Suspense>
           </div>
         </div>
       )}

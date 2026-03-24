@@ -1,0 +1,91 @@
+# ==========================================
+# AUTOMATED DEPLOYMENT
+# ==========================================
+# Deploy to various environments
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to deploy (tag or branch)'
+        required: false
+        default: 'main'
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'staging'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/utme-master
+            git pull origin ${{ github.event.inputs.version }}
+            docker-compose -f docker-compose.staging.yml pull
+            docker-compose -f docker-compose.staging.yml up -d
+            docker-compose -f docker-compose.staging.yml exec backend npx prisma migrate deploy
+
+      - name: Verify deployment
+        run: |
+          curl -f ${{ secrets.STAGING_URL }}/api/health || exit 1
+
+      - name: Notify deployment
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "✅ Staging deployment successful! (Version: ${{ github.event.inputs.version }})"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/utme-master
+            git pull origin ${{ github.event.inputs.version }}
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
+
+      - name: Verify deployment
+        run: |
+          curl -f ${{ secrets.PRODUCTION_URL }}/api/health || exit 1
+
+      - name: Notify deployment
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "✅ Production deployment successful! (Version: ${{ github.event.inputs.version }})"

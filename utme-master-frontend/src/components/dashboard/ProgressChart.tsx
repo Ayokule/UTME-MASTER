@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from 'framer-motion'
 import Card from '../ui/Card'
@@ -7,64 +8,47 @@ interface Props {
   data: ProgressPoint[]
 }
 
-export default function ProgressChart({ data }: Props) {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+const formatDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-  const chartData = data.map(point => ({
-    ...point,
-    formattedDate: formatDate(point.date)
-  }))
+// Defined outside component — stable reference, no re-creation on render
+const ChartTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+      <p className="font-semibold text-gray-900">{formatDate(d.date)}</p>
+      <p className="text-sm text-gray-600">
+        Score: <span className="font-medium text-primary-600">{d.score}%</span>
+      </p>
+      {d.exam_title && <p className="text-sm text-gray-600 mt-1">{d.exam_title}</p>}
+    </div>
+  )
+}
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{formatDate(data.date)}</p>
-          <p className="text-sm text-gray-600">
-            Score: <span className="font-medium text-primary-600">{data.score}%</span>
-          </p>
-          {data.exam_title && (
-            <p className="text-sm text-gray-600 mt-1">{data.exam_title}</p>
-          )}
-        </div>
-      )
-    }
-    return null
-  }
+const ProgressChart = memo(function ProgressChart({ data }: Props) {
+  const chartData = useMemo(
+    () => data.map(point => ({ ...point, formattedDate: formatDate(point.date) })),
+    [data]
+  )
 
-  const getAverageScore = () => {
-    if (data.length === 0) return 0
-    return Math.round(data.reduce((sum, point) => sum + point.score, 0) / data.length)
-  }
+  const { averageScore, trend } = useMemo(() => {
+    if (data.length === 0) return { averageScore: 0, trend: 'neutral' as const }
+    const avg = Math.round(data.reduce((s, p) => s + p.score, 0) / data.length)
+    if (data.length < 2) return { averageScore: avg, trend: 'neutral' as const }
+    const recent = data.slice(-3).reduce((s, p) => s + p.score, 0) / Math.min(3, data.length)
+    const earlier = data.slice(0, -3).reduce((s, p) => s + p.score, 0) / Math.max(1, data.length - 3)
+    const t = recent > earlier + 2 ? 'improving' : recent < earlier - 2 ? 'declining' : 'stable'
+    return { averageScore: avg, trend: t as 'improving' | 'declining' | 'stable' }
+  }, [data])
 
-  const getTrend = () => {
-    if (!data || data.length < 2) return 'neutral'
-    const recent = data.slice(-3).reduce((sum, point) => sum + point.score, 0) / Math.min(3, data.length)
-    const earlier = data.slice(0, -3).reduce((sum, point) => sum + point.score, 0) / Math.max(1, data.length - 3)
-    
-    if (recent > earlier + 2) return 'improving'
-    if (recent < earlier - 2) return 'declining'
-    return 'stable'
-  }
-
-  const trend = getTrend()
-  const trendColors = {
-    improving: 'text-green-600',
-    declining: 'text-red-600',
-    stable: 'text-gray-600',
-    neutral: 'text-gray-500'
-  }
-
-  const trendMessages = {
+  const trendColor = trend === 'improving' ? 'text-green-600' : trend === 'declining' ? 'text-red-600' : 'text-gray-600'
+  const trendMsg = {
     improving: '📈 Your scores are improving!',
     declining: '📉 Focus on weak areas',
     stable: '📊 Consistent performance',
     neutral: '📊 No trend data yet'
-  }
+  }[trend]
 
   return (
     <motion.div
@@ -80,49 +64,46 @@ export default function ProgressChart({ data }: Props) {
               <p className="text-sm text-gray-600">Your score trend in recent exams</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">{getAverageScore()}%</p>
-              <p className={`text-sm font-medium ${trendColors[trend]}`}>
-                {trendMessages[trend]}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{averageScore}%</p>
+              <p className={`text-sm font-medium ${trendColor}`}>{trendMsg}</p>
             </div>
           </div>
         </div>
 
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis 
-                dataKey="formattedDate" 
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                domain={[0, 100]}
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line 
-                type="monotone" 
-                dataKey="score" 
-                stroke="#6366f1" 
-                strokeWidth={3}
-                dot={{ fill: '#6366f1', strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, stroke: '#6366f1', strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {data.length === 0 && (
+        {data.length === 0 ? (
           <div className="flex items-center justify-center h-80 text-gray-500">
             <div className="text-center">
               <p className="text-lg font-medium mb-2">No progress data yet</p>
               <p className="text-sm">Complete a few exams to track your progress</p>
             </div>
           </div>
+        ) : (
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="formattedDate" tick={{ fontSize: 12 }} />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 12 }}
+                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#6366f1"
+                  strokeWidth={3}
+                  dot={{ fill: '#6366f1', strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, stroke: '#6366f1', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </Card>
     </motion.div>
   )
-}
+})
+
+export default ProgressChart

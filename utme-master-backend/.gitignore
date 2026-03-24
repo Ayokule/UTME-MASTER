@@ -1,0 +1,69 @@
+# ==========================================
+# UTME MASTER - GIT IGNORE
+# ==========================================
+# Environment files (contains sensitive data)
+.env
+.env.*
+!.env.example
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/
+*.upload
+
+# Database
+*.sqlite
+*.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+coverage/
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Backup files
+*.backup
+*.sql.backup
+
+# Test files
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Docker
+.dockerignore
+
+# Misc
+.cache/
+.parcel-cache/

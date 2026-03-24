@@ -134,9 +134,21 @@ router.get(
 
 router.get(
   '/admin',
-  authenticate,                                      // Must be logged in
-  dashboardController.getAdminDashboard              // Handle request
+  authenticate,
+  dashboardController.getAdminDashboard
 )
+
+// GET /api/student/exams — available official exams for student
+router.get('/exams', authenticate, dashboardController.getStudentExams)
+
+// GET /api/student/exam-history — completed official exams
+router.get('/exam-history', authenticate, dashboardController.getStudentExamHistory)
+
+// GET /api/student/tests — available practice tests
+router.get('/tests', authenticate, dashboardController.getStudentTests)
+
+// GET /api/student/test-history — completed practice tests
+router.get('/test-history', authenticate, dashboardController.getStudentTestHistory)
 
 // ==========================================
 // EXPORT ROUTER

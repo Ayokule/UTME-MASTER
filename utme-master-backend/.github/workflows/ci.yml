@@ -1,0 +1,321 @@
+# ==========================================
+# UTME MASTER - CI/CD PIPELINE
+# ==========================================
+# Automated testing and deployment workflow
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# ==========================================
+# ENVIRONMENT VARIABLES
+# ==========================================
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# ==========================================
+# JOBS
+# ==========================================
+jobs:
+  # ==========================================
+  # Lint and Type Check
+  # ==========================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run typecheck
+
+  # ==========================================
+  # Backend Tests
+  # ==========================================
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: utme_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: utme_master_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: utme-master-backend
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+        working-directory: utme-master-backend
+        env:
+          DATABASE_URL: postgresql://utme_test:test_password@localhost:5432/utme_master_test
+
+      - name: Run tests
+        run: npm test
+        working-directory: utme-master-backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://utme_test:test_password@localhost:5432/utme_master_test
+          JWT_SECRET: test-jwt-secret
+          SMTP_HOST: localhost
+          SMTP_PORT: 1025
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: utme-master-backend/coverage/
+          retention-days: 7
+
+  # ==========================================
+  # Frontend Tests
+  # ==========================================
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --run
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: utme-master-frontend/dist/
+          retention-days: 7
+
+  # ==========================================
+  # E2E Tests
+  # ==========================================
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: utme_e2e
+          POSTGRES_PASSWORD: e2e_password
+          POSTGRES_DB: utme_master_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      backend:
+        image: ghcr.io/${{ github.repository }}:latest
+        ports:
+          - 5000:5000
+        env:
+          DATABASE_URL: postgresql://utme_e2e:e2e_password@localhost:5432/utme_master_e2e
+          JWT_SECRET: e2e-jwt-secret
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
+
+  # ==========================================
+  # Build Docker Images
+  # ==========================================
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint, backend-tests, frontend-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=ref,event=pr
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: utme-master-backend
+          file: utme-master-backend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: utme-master-frontend
+          file: utme-master-frontend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================
+  # Deploy to Production
+  # ==========================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-docker, e2e-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/utme-master
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
+
+      - name: Notify deployment success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "✅ Production deployment successful! (Commit: ${{ github.sha }})"
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "❌ Production deployment failed! (Commit: ${{ github.sha }})"
+
+  # ==========================================
+  # Deploy to Staging
+  # ==========================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/utme-master
+            docker-compose -f docker-compose.staging.yml pull
+            docker-compose -f docker-compose.staging.yml up -d

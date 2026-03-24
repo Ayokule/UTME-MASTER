@@ -23,7 +23,7 @@ import apiClient from './client.js'
 export const getExamResults = async (studentExamId: string) => {
   try {
     console.log('🔄 [RESULTS API] Fetching results for exam:', studentExamId)
-    const response = await apiClient.get(`/api/exams/results/${studentExamId}`)
+    const response = await apiClient.get(`/exams/results/${studentExamId}`)
     const data = response.data?.data || response.data
     console.log('✅ [RESULTS API] Results loaded successfully')
     return data

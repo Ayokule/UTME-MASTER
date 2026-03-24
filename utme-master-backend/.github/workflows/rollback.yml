@@ -1,0 +1,52 @@
+# ==========================================
+# ROLLBACK WORKFLOW
+# ==========================================
+# Rollback to previous version
+
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to rollback to (tag or commit hash)'
+        required: true
+
+jobs:
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rollback to previous version
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/utme-master
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
+
+      - name: Verify rollback
+        run: |
+          curl -f ${{ secrets.PRODUCTION_URL }}/api/health || exit 1
+
+      - name: Notify rollback
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "🔄 Rollback completed to version ${{ github.event.inputs.version }}"

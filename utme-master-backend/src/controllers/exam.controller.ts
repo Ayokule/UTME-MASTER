@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express'
 import * as examService from '../services/exam.service'
+import { prisma } from '../config/database'
 import { logger } from '../utils/logger'
 
 // ==========================================
@@ -13,7 +14,7 @@ import { logger } from '../utils/logger'
 // ==========================================
 export async function startExam(req: Request, res: Response): Promise<void> {
   try {
-    const { examId } = req.params
+    const { id: examId } = req.params
     const studentId = (req as any).user?.id
 
     if (!studentId) {
@@ -359,16 +360,15 @@ export async function retakeExam(req: Request, res: Response): Promise<void> {
 
     // To bridge the frontend sending examId and the service expecting studentExamId,
     // we find the last submitted attempt for this exam.
-    const lastAttempt = await (req as any).prisma.studentExam.findFirst({
+    const lastAttempt = await prisma.studentExam.findFirst({
       where: {
-        examId: examId,
-        studentId: studentId,
+        examId,
+        studentId,
         status: 'SUBMITTED'
       },
       orderBy: {
         submittedAt: 'desc'
-      },
-      select: { id: true }
+      }
     })
 
     if (!lastAttempt) {
@@ -499,13 +499,15 @@ export async function getExamStatistics(req: Request, res: Response): Promise<vo
 }
 
 // ==========================================
-// GET ALL EXAMS (Student)
+// GET ALL EXAMS
+// Admin/Teacher: returns all exams (published + draft)
+// Student: returns only published + active
 // ==========================================
 export async function getAllExams(req: Request, res: Response): Promise<void> {
   try {
-    const studentId = (req as any).user?.id
+    const user = (req as any).user
 
-    if (!studentId) {
+    if (!user?.id) {
       res.status(401).json({
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
@@ -513,8 +515,10 @@ export async function getAllExams(req: Request, res: Response): Promise<void> {
       return
     }
 
-    const exams = await (req as any).prisma.exam.findMany({
-      where: { isPublished: true, isActive: true },
+    const isAdminOrTeacher = ['ADMIN', 'TEACHER'].includes(user.role)
+
+    const exams = await prisma.exam.findMany({
+      where: isAdminOrTeacher ? {} : { isPublished: true, isActive: true },
       select: {
         id: true,
         title: true,
@@ -523,13 +527,18 @@ export async function getAllExams(req: Request, res: Response): Promise<void> {
         totalQuestions: true,
         totalMarks: true,
         passMarks: true,
+        isPublished: true,
+        isActive: true,
         allowReview: true,
         allowRetake: true,
-        createdAt: true
-      }
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { examQuestions: true } }
+      },
+      orderBy: { createdAt: 'desc' }
     })
 
-    logger.info(`Exams retrieved for student ${studentId}`)
+    logger.info(`Exams retrieved for user ${user.id} (role: ${user.role})`)
 
     res.json({
       success: true,
@@ -541,6 +550,188 @@ export async function getAllExams(req: Request, res: Response): Promise<void> {
       success: false,
       error: { code: 'GET_EXAMS_FAILED', message: error.message }
     })
+  }
+}
+
+// ==========================================
+// UPDATE EXAM (Admin/Teacher)
+// ==========================================
+export async function updateExam(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params
+    const user = (req as any).user
+
+    if (!user?.id) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+      })
+      return
+    }
+
+    const existing = await prisma.exam.findUnique({ where: { id } })
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Exam not found' }
+      })
+      return
+    }
+
+    const {
+      title, description, duration, totalQuestions, totalMarks,
+      passMarks, isPublished, isActive, allowReview, allowRetake,
+      randomizeQuestions, randomizeOptions, showResults
+    } = req.body
+
+    const updated = await prisma.exam.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(duration !== undefined && { duration }),
+        ...(totalQuestions !== undefined && { totalQuestions }),
+        ...(totalMarks !== undefined && { totalMarks }),
+        ...(passMarks !== undefined && { passMarks }),
+        ...(isPublished !== undefined && { isPublished }),
+        ...(isActive !== undefined && { isActive }),
+        ...(allowReview !== undefined && { allowReview }),
+        ...(allowRetake !== undefined && { allowRetake }),
+        ...(randomizeQuestions !== undefined && { randomizeQuestions }),
+        ...(randomizeOptions !== undefined && { randomizeOptions }),
+        ...(showResults !== undefined && { showResults }),
+        updatedAt: new Date()
+      }
+    })
+
+    logger.info(`Exam updated: ${id} by user ${user.id}`)
+    res.json({ success: true, data: updated })
+  } catch (error: any) {
+    logger.error('Failed to update exam:', error)
+    res.status(400).json({
+      success: false,
+      error: { code: 'UPDATE_EXAM_FAILED', message: error.message }
+    })
+  }
+}
+
+// ==========================================
+// DELETE EXAM (Admin only)
+// ==========================================
+export async function deleteExam(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params
+    const user = (req as any).user
+
+    if (!user?.id) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+      })
+      return
+    }
+
+    const existing = await prisma.exam.findUnique({ where: { id } })
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Exam not found' }
+      })
+      return
+    }
+
+    // Delete related exam questions first, then the exam
+    await prisma.examQuestion.deleteMany({ where: { examId: id } })
+    await prisma.exam.delete({ where: { id } })
+
+    logger.info(`Exam deleted: ${id} by admin ${user.id}`)
+    res.json({ success: true, data: { message: 'Exam deleted successfully' } })
+  } catch (error: any) {
+    logger.error('Failed to delete exam:', error)
+    res.status(400).json({
+      success: false,
+      error: { code: 'DELETE_EXAM_FAILED', message: error.message }
+    })
+  }
+}
+
+// ==========================================
+// ASSIGN QUESTIONS TO EXAM (Admin/Teacher)
+// ==========================================
+export async function assignQuestions(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params
+    const { questionIds } = req.body // string[]
+    const user = (req as any).user
+
+    if (!user?.id) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
+      return
+    }
+
+    if (!Array.isArray(questionIds)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'questionIds must be an array' } })
+      return
+    }
+
+    const exam = await prisma.exam.findUnique({ where: { id } })
+    if (!exam) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Exam not found' } })
+      return
+    }
+
+    // Replace all exam questions atomically
+    await prisma.$transaction([
+      prisma.examQuestion.deleteMany({ where: { examId: id } }),
+      ...(questionIds.length > 0
+        ? [prisma.examQuestion.createMany({
+            data: questionIds.map((qId: string, idx: number) => ({
+              examId: id,
+              questionId: qId,
+              orderNumber: idx + 1,
+              questionData: {}
+            }))
+          })]
+        : [])
+    ])
+
+    // Update totalQuestions count
+    await prisma.exam.update({
+      where: { id },
+      data: { totalQuestions: questionIds.length }
+    })
+
+    logger.info(`Assigned ${questionIds.length} questions to exam ${id} by user ${user.id}`)
+    res.json({ success: true, data: { assigned: questionIds.length } })
+  } catch (error: any) {
+    logger.error('Failed to assign questions:', error)
+    res.status(400).json({ success: false, error: { code: 'ASSIGN_QUESTIONS_FAILED', message: error.message } })
+  }
+}
+
+// ==========================================
+// GET EXAM QUESTIONS (Admin/Teacher)
+// ==========================================
+export async function getExamQuestions(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params
+    const user = (req as any).user
+
+    if (!user?.id) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
+      return
+    }
+
+    const examQuestions = await prisma.examQuestion.findMany({
+      where: { examId: id },
+      orderBy: { orderNumber: 'asc' },
+      select: { questionId: true, orderNumber: true }
+    })
+
+    res.json({ success: true, data: { questionIds: examQuestions.map(eq => eq.questionId) } })
+  } catch (error: any) {
+    logger.error('Failed to get exam questions:', error)
+    res.status(400).json({ success: false, error: { code: 'GET_EXAM_QUESTIONS_FAILED', message: error.message } })
   }
 }
 
@@ -569,7 +760,7 @@ export async function startPracticeExam(req: Request, res: Response): Promise<vo
     }
 
     // Get questions for practice exam
-    const questionsRaw = await (req as any).prisma.question.findMany({
+    const questionsRaw = await prisma.question.findMany({
       where: {
         subject: { name: subject },
         examType,
@@ -610,7 +801,7 @@ export async function startPracticeExam(req: Request, res: Response): Promise<vo
 
     // Create practice exam session
     const durationSeconds = (duration || 60) * 60
-    const studentExam = await (req as any).prisma.studentExam.create({
+    const studentExam = await prisma.studentExam.create({
       data: {
         examId: 'practice',
         studentId,
@@ -905,5 +1096,151 @@ export async function processExamScheduling(req: Request, res: Response): Promis
       success: false,
       error: { code: 'PROCESS_SCHEDULING_FAILED', message: error.message }
     })
+  }
+}
+
+// REPORT FLAGGED QUESTIONS — persist to DB and notify admin/teacher
+export async function reportFlaggedQuestions(req: Request, res: Response): Promise<void> {
+  try {
+    const { studentExamId } = req.params
+    const { flaggedQuestionIds } = req.body
+    const studentId = (req as any).user?.id
+
+    if (!flaggedQuestionIds || !Array.isArray(flaggedQuestionIds) || flaggedQuestionIds.length === 0) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'No flagged questions provided' } })
+      return
+    }
+
+    const studentExam = await prisma.studentExam.findUnique({
+      where: { id: studentExamId },
+      include: {
+        exam: { select: { title: true, id: true } },
+        student: { select: { firstName: true, lastName: true, email: true } }
+      }
+    })
+
+    if (!studentExam) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Exam session not found' } })
+      return
+    }
+
+    if (studentExam.studentId !== studentId) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } })
+      return
+    }
+
+    // Persist flagged questions — skip duplicates silently
+    await Promise.all(
+      flaggedQuestionIds.map((questionId: string) =>
+        prisma.flaggedQuestion.create({
+          data: { studentExamId, examId: studentExam.examId, questionId, studentId, status: 'PENDING' }
+        }).catch(() => null) // ignore duplicate/constraint errors
+      )
+    )
+
+    // Create a notification for all admins/teachers
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'TEACHER'] }, isActive: true },
+      select: { id: true }
+    })
+
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map(admin => ({
+          userId: admin.id,
+          type: 'WARNING' as any,
+          title: 'Questions Flagged',
+          message: `${studentExam.student.firstName} ${studentExam.student.lastName} flagged ${flaggedQuestionIds.length} question(s) in "${studentExam.exam.title}"`
+        })),
+        skipDuplicates: true
+      })
+    }
+
+    logger.warn(`[FLAG REPORT] ${flaggedQuestionIds.length} question(s) flagged in exam "${studentExam.exam.title}" by ${studentExam.student.email}`)
+
+    res.json({
+      success: true,
+      data: { reported: flaggedQuestionIds.length, message: 'Flagged questions reported to admin/teacher' }
+    })
+  } catch (error: any) {
+    logger.error('Failed to report flagged questions:', error)
+    res.status(500).json({ success: false, error: { code: 'REPORT_FAILED', message: error.message } })
+  }
+}
+
+// GET FLAGGED QUESTIONS — for admins/teachers
+export async function getFlaggedQuestions(req: Request, res: Response): Promise<void> {
+  try {
+    const { status, examId } = req.query
+
+    const where: any = {}
+    if (status) where.status = status
+    if (examId) where.examId = examId
+
+    const flagged = await prisma.flaggedQuestion.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // Enrich with question + student + exam data
+    const enriched = await Promise.all(
+      flagged.map(async (f: any) => {
+        const [question, student, exam] = await Promise.all([
+          prisma.question.findUnique({
+            where: { id: f.questionId },
+            select: { id: true, questionText: true, subject: { select: { name: true } }, difficulty: true, examType: true }
+          }),
+          prisma.user.findUnique({
+            where: { id: f.studentId },
+            select: { id: true, firstName: true, lastName: true, email: true }
+          }),
+          prisma.exam.findUnique({
+            where: { id: f.examId },
+            select: { id: true, title: true }
+          })
+        ])
+        return {
+          id: f.id,
+          status: f.status,
+          createdAt: f.createdAt,
+          reviewedAt: f.reviewedAt,
+          question: question ? {
+            ...question,
+            questionText: question.questionText?.replace(/<[^>]*>/g, '').substring(0, 120)
+          } : null,
+          student,
+          exam
+        }
+      })
+    )
+
+    res.json({ success: true, data: { flaggedQuestions: enriched, total: enriched.length } })
+  } catch (error: any) {
+    logger.error('Failed to fetch flagged questions:', error)
+    res.status(500).json({ success: false, error: { code: 'FETCH_FAILED', message: error.message } })
+  }
+}
+
+// UPDATE FLAGGED QUESTION STATUS — admin/teacher review action
+export async function updateFlaggedQuestionStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { flagId } = req.params
+    const { status } = req.body
+    const reviewerId = (req as any).user?.id
+
+    if (!['REVIEWED', 'DISMISSED'].includes(status)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_STATUS', message: 'Status must be REVIEWED or DISMISSED' } })
+      return
+    }
+
+    const updated = await prisma.flaggedQuestion.update({
+      where: { id: flagId },
+      data: { status, reviewedBy: reviewerId, reviewedAt: new Date() }
+    })
+
+    res.json({ success: true, data: updated })
+  } catch (error: any) {
+    logger.error('Failed to update flagged question status:', error)
+    res.status(500).json({ success: false, error: { code: 'UPDATE_FAILED', message: error.message } })
   }
 }

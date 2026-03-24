@@ -67,7 +67,6 @@ import importRoutes from './routes/import.routes'
 import exportRoutes from './routes/export.routes'
 import licenseRoutes from './routes/license.routes'
 import dashboardRoutes from './routes/dashboard.routes'
-import studentDashboardRoutes from './routes/student-dashboard.routes'
 import resultsRoutes from './routes/results.routes'
 import errorRoutes from './routes/error.routes'
 import adminRoutes from './routes/admin.routes'
@@ -238,9 +237,6 @@ app.use(`${API_PREFIX}/license`, licenseRoutes)
 // Dashboard routes: /api/student/*
 app.use(`${API_PREFIX}/student`, dashboardRoutes)
 
-// Student Dashboard routes: /api/student/dashboard/*
-app.use(`${API_PREFIX}/student/dashboard`, studentDashboardRoutes)
-
 // Results routes: /api/student/results/*
 app.use(`${API_PREFIX}/student/results`, resultsRoutes)
 
@@ -264,6 +260,10 @@ app.use(`${API_PREFIX}/health`, healthRoutes)
 
 // Notification routes: /api/notifications/*
 app.use(`${API_PREFIX}/notifications`, notificationRoutes)
+
+// Data management routes: /api/data-management/*
+import dataManagementRoutes from './routes/dataManagement.routes'
+app.use(`${API_PREFIX}/data-management`, dataManagementRoutes)
 
 // ==========================================
 // ROOT ROUTE
@@ -353,9 +353,9 @@ async function startServer() {
       // Log which CORS origin is allowed
       logger.info(`🔗 CORS origin: ${process.env.CORS_ORIGIN}`)
       
-      // Start scheduler service
-      startScheduler()
-      logger.info(`⏰ Scheduler service started`)
+      // Scheduler disabled for testing - enable when admin starts exam scheduler
+      // startScheduler()
+      // logger.info(`⏰ Scheduler service started`)
     })
   } catch (error) {
     // If database connection fails, log error and exit
@@ -376,9 +376,9 @@ startServer()
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...')
   
-  // Stop scheduler
-  stopScheduler()
-  logger.info('Scheduler stopped')
+  // Scheduler disabled for testing
+  // stopScheduler()
+  // logger.info('Scheduler stopped')
   
   // Disconnect from database
   await prisma.$disconnect()
@@ -392,9 +392,9 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
   logger.info('\nSIGINT received, shutting down gracefully...')
   
-  // Stop scheduler
-  stopScheduler()
-  logger.info('Scheduler stopped')
+  // Scheduler disabled for testing
+  // stopScheduler()
+  // logger.info('Scheduler stopped')
   
   // Disconnect from database
   await prisma.$disconnect()

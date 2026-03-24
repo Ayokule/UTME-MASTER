@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Download, Upload } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Plus, Trash2, Download, Upload, CheckCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import Layout from '../../components/Layout'
 import { useQuestionSelectors } from '../../store/question'
 import { showToast } from '../../components/ui/Toast'
@@ -11,10 +11,17 @@ import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import QuestionFilters from '../../components/questions/QuestionFilters'
 import QuestionTable from '../../components/questions/QuestionTable'
+import { exportQuestionsCSV } from '../../api/questions'
 import { Question } from '../../types/question'
 
 export default function QuestionList() {
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Detect if accessed from teacher routes
+  const isTeacher = location.pathname.startsWith('/teacher')
+  const basePath = isTeacher ? '/teacher/questions' : '/admin/questions'
+  const importPath = isTeacher ? '/admin/bulk-import' : '/admin/bulk-import'
   const {
     questions,
     total,
@@ -38,6 +45,9 @@ export default function QuestionList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null)
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState({ fetched: 0, total: 0 })
+  const [exportDone, setExportDone] = useState(false)
 
   // Load questions on mount
   useEffect(() => {
@@ -52,11 +62,11 @@ export default function QuestionList() {
   }, [])
 
   const handleCreateQuestion = () => {
-    navigate('/admin/questions/create')
+    navigate(`${basePath}/create`)
   }
 
   const handleEditQuestion = (question: Question) => {
-    navigate(`/admin/questions/edit/${question.id}`)
+    navigate(`${basePath}/edit/${question.id}`)
   }
 
   const handleDeleteQuestion = (question: Question) => {
@@ -92,11 +102,23 @@ export default function QuestionList() {
   }
 
   const handleImportQuestions = () => {
-    navigate('/admin/bulk-import')
+    navigate(importPath)
   }
 
-  const handleExportQuestions = () => {
-    navigate('/admin/bulk-import?tab=export')
+  const handleExportQuestions = async () => {
+    setExporting(true)
+    setExportDone(false)
+    setExportProgress({ fetched: 0, total: 0 })
+    try {
+      await exportQuestionsCSV({}, (fetched, total) => {
+        setExportProgress({ fetched, total })
+      })
+      setExportDone(true)
+      showToast.success('Questions exported successfully!')
+    } catch (err: any) {
+      showToast.error(err.message || 'Export failed')
+      setExporting(false)
+    }
   }
 
   return (
@@ -326,6 +348,54 @@ export default function QuestionList() {
                 Delete {selectedCount} Question{selectedCount !== 1 ? 's' : ''}
               </Button>
             </div>
+          </div>
+        </Modal>
+
+        {/* Export Progress Modal */}
+        <Modal
+          isOpen={exporting}
+          onClose={() => { if (exportDone) setExporting(false) }}
+          title="Exporting Questions"
+        >
+          <div className="space-y-5 py-2">
+            {!exportDone ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <span className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    {exportProgress.total > 0
+                      ? `Fetching questions… ${exportProgress.fetched} / ${exportProgress.total}`
+                      : 'Starting export…'}
+                  </p>
+                </div>
+                {exportProgress.total > 0 && (
+                  <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      className="h-2 bg-blue-500 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.round((exportProgress.fetched / exportProgress.total) * 100)}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Please wait, do not close this window.</p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <p className="text-sm text-gray-700 font-medium">
+                    {exportProgress.total} questions exported successfully!
+                  </p>
+                </div>
+                <p className="text-xs text-gray-500">Your CSV file has been downloaded.</p>
+                <div className="flex justify-end">
+                  <Button variant="primary" size="sm" onClick={() => setExporting(false)}>
+                    Done
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       </div>

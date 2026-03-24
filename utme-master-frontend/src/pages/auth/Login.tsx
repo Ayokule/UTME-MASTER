@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Mail, Lock, Sparkles, GraduationCap } from 'lucide-react'
+import { Mail, Lock, Sparkles, GraduationCap, AlertCircle } from 'lucide-react'
 import { login } from '../../api/auth'
 import { useAuthStore } from '../../store/auth'
 import { showToast } from '../../components/ui/Toast'
@@ -10,72 +10,77 @@ import Input from '../../components/ui/Input'
 import Card from '../../components/ui/Card'
 
 export default function Login() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
+  const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setLoginError(null)
 
+    // Client-side validation — no native browser required
+    if (!formData.email.trim()) {
+      setLoginError('Please enter your email address.')
+      return
+    }
+    if (!formData.password.trim()) {
+      setLoginError('Please enter your password.')
+      return
+    }
+
+    setLoading(false)
     try {
       const response = await login(formData)
-      
       if (response.success) {
         setAuth(response.data.user, response.data.token)
         showToast.success(`Welcome back, ${response.data.user.firstName}!`)
-        
-        // Small delay to ensure token is set
         await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Navigate based on user role
-        if (response.data.user.role === 'ADMIN' || response.data.user.role === 'TEACHER') {
+        if (response.data.user.role === 'ADMIN') {
           navigate('/admin/dashboard')
+        } else if (response.data.user.role === 'TEACHER') {
+          navigate('/teacher/dashboard')
         } else {
           navigate('/student/dashboard')
         }
       }
     } catch (err: any) {
-      console.error('Login error:', err)
-      showToast.error(err.response?.data?.error?.message || 'Login failed. Please try again.')
+      const msg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        'Invalid email or password. Please try again.'
+      setLoginError(msg)
     } finally {
       setLoading(false)
     }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    setLoginError(null)
+    setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   const handleQuickLogin = async (email: string, password: string) => {
     setFormData({ email, password })
+    setLoginError(null)
     setLoading(true)
-
     try {
       const response = await login({ email, password })
-      
       if (response.success) {
         setAuth(response.data.user, response.data.token)
         showToast.success(`Welcome back!`)
-        
-        // Small delay to ensure token is set
         await new Promise(resolve => setTimeout(resolve, 100))
-        
-        if (response.data.user.role === 'ADMIN' || response.data.user.role === 'TEACHER') {
+        if (response.data.user.role === 'ADMIN') {
           navigate('/admin/dashboard')
+        } else if (response.data.user.role === 'TEACHER') {
+          navigate('/teacher/dashboard')
         } else {
           navigate('/student/dashboard')
         }
       }
     } catch (err: any) {
-      showToast.error('Login failed. Please check your credentials.')
+      setLoginError('Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -101,12 +106,11 @@ export default function Login() {
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
               className="w-16 h-16 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow"
             >
               <GraduationCap className="w-8 h-8 text-white" />
             </motion.div>
-            
             <motion.h1
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -115,7 +119,6 @@ export default function Login() {
             >
               UTME Master
             </motion.h1>
-            
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -134,6 +137,7 @@ export default function Login() {
             transition={{ delay: 0.5 }}
             onSubmit={handleSubmit}
             className="space-y-6"
+            noValidate
           >
             <Input
               type="email"
@@ -143,7 +147,6 @@ export default function Login() {
               onChange={handleChange}
               icon={<Mail className="w-5 h-5" />}
               placeholder="Enter your email"
-              required
               variant="filled"
             />
 
@@ -155,9 +158,20 @@ export default function Login() {
               onChange={handleChange}
               icon={<Lock className="w-5 h-5" />}
               placeholder="Enter your password"
-              required
               variant="filled"
             />
+
+            {/* Inline error message */}
+            {loginError && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{loginError}</span>
+              </motion.div>
+            )}
 
             <div className="flex items-center justify-between">
               <label className="flex items-center">
@@ -167,7 +181,6 @@ export default function Login() {
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-
               <Link
                 to="/forgot-password"
                 className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors"
@@ -176,12 +189,7 @@ export default function Login() {
               </Link>
             </div>
 
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
+            <Button type="submit" loading={loading} className="w-full" size="lg">
               Sign In
             </Button>
           </motion.form>
@@ -204,60 +212,70 @@ export default function Login() {
             </p>
           </motion.div>
 
-         
-            {/* Quick Login */}
-            <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
-              <p className="text-sm font-semibold text-blue-800 mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Quick Access - Demo Accounts
-              </p>
-              <div className="space-y-3">
-                <Button
-                  onClick={() => handleQuickLogin('admin@utmemaster.com', 'Admin@123')}
-                  disabled={loading}
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-green-700 border-green-300 hover:bg-green-50"
-                >
-                  👨‍💼 Admin Portal
-                </Button>
-                <Button
-                  onClick={() => handleQuickLogin('student1@test.com', 'Student@123')}
-                  disabled={loading}
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
-                >
-                  🎓 Student 1 Portal
-                </Button>
-                <Button
-                  onClick={() => handleQuickLogin('student2@test.com', 'Student@123')}
-                  disabled={loading}
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
-                >
-                  🎓 Student 2 Portal
-                </Button>
-              </div>
+          {/* Quick Login */}
+          <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
+            <p className="text-sm font-semibold text-blue-800 mb-4 flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Quick Access - Demo Accounts
+            </p>
+            <div className="space-y-3">
+              <Button
+                onClick={() => handleQuickLogin('admin@utmemaster.com', 'Admin@123')}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="w-full text-green-700 border-green-300 hover:bg-green-50"
+              >
+                👨‍💼 Admin Portal
+              </Button>
+              <Button
+                onClick={() => handleQuickLogin('teacher@utmemaster.com', 'Teacher@123')}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="w-full text-purple-700 border-purple-300 hover:bg-purple-50"
+              >
+                👩‍🏫 Teacher Portal
+              </Button>
+              <Button
+                onClick={() => handleQuickLogin('student1@test.com', 'Student@123')}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
+              >
+                🎓 Student 1 Portal
+              </Button>
+              <Button
+                onClick={() => handleQuickLogin('student2@test.com', 'Student@123')}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="w-full text-blue-700 border-blue-300 hover:bg-blue-50"
+              >
+                🎓 Student 2 Portal
+              </Button>
             </div>
+          </div>
 
-            {/* Credentials Info */}
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-xs font-semibold text-amber-800 mb-3">📋 Default Credentials:</p>
-              <div className="space-y-2 text-xs text-amber-700">
-                <div>
-                  <p className="font-medium">Admin Account:</p>
-                  <p className="text-amber-600">Email: admin@utmemaster.com</p>
-                  <p className="text-amber-600">Password: Admin@123</p>
-                </div>
-                <div>
-                  <p className="font-medium">Student Accounts:</p>
-                  <p className="text-amber-600">Email: student1@test.com / student2@test.com</p>
-                  <p className="text-amber-600">Password: Student@123</p>
-                </div>
+          {/* Credentials Info */}
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-xs font-semibold text-amber-800 mb-3">📋 Default Credentials:</p>
+            <div className="space-y-2 text-xs text-amber-700">
+              <div>
+                <p className="font-medium">Admin:</p>
+                <p>admin@utmemaster.com / Admin@123</p>
+              </div>
+              <div>
+                <p className="font-medium">Teacher:</p>
+                <p>teacher@utmemaster.com / Teacher@123</p>
+              </div>
+              <div>
+                <p className="font-medium">Students:</p>
+                <p>student1@test.com or student2@test.com / Student@123</p>
               </div>
             </div>
+          </div>
 
           {/* Backend Status */}
           <motion.div

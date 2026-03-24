@@ -26,6 +26,11 @@ export async function startExam(examId: string, studentId: string) {
   if (!exam.isPublished) throw new ForbiddenError('Exam is not published')
   if (!exam.isActive) throw new ForbiddenError('Exam is not active')
 
+  // Validate exam has questions
+  if (!exam.examQuestions || exam.examQuestions.length === 0) {
+    throw new BadRequestError('Exam has no questions assigned')
+  }
+
   // Check exam scheduling constraints
   const now = new Date()
   
@@ -41,11 +46,25 @@ export async function startExam(examId: string, studentId: string) {
     throw new ForbiddenError(`Exam has ended. Was available until: ${endTime}`)
   }
 
+  // Check for any existing session for this student+exam
   const existingSession = await prisma.studentExam.findFirst({
-    where: { examId, studentId, status: 'IN_PROGRESS' }
+    where: { examId, studentId }
   })
 
-  if (existingSession) throw new BadRequestError('You already have an active session')
+  if (existingSession) {
+    if (existingSession.status === 'IN_PROGRESS') {
+      // Resume the existing session instead of creating a new one
+      return resumeExam(existingSession.id, studentId)
+    }
+    if (existingSession.status === 'SUBMITTED' && !exam.allowRetake) {
+      throw new ForbiddenError('You have already completed this exam and retakes are not allowed')
+    }
+    // If submitted and retakes allowed, delete old session so a new one can be created
+    if (existingSession.status === 'SUBMITTED' && exam.allowRetake) {
+      await prisma.studentAnswer.deleteMany({ where: { studentExamId: existingSession.id } })
+      await prisma.studentExam.delete({ where: { id: existingSession.id } })
+    }
+  }
 
   const questionIds = exam.examQuestions.map(eq => eq.questionId)
   let questionOrder = questionIds
@@ -61,7 +80,7 @@ export async function startExam(examId: string, studentId: string) {
       startedAt: new Date(),
       totalQuestions: questionIds.length,
       questionOrder: questionOrder,
-      timeRemaining: exam.duration * 60,
+      timeRemaining: exam.duration, // duration is already in seconds
       isPractice: false
     }
   })
@@ -130,7 +149,7 @@ export async function resumeExam(studentExamId: string, studentId: string) {
 
   const startTime = studentExam.startedAt?.getTime() || 0
   const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
-  const timeRemaining = Math.max(0, (studentExam.exam.duration * 60) - elapsedSeconds)
+  const timeRemaining = Math.max(0, studentExam.exam.duration - elapsedSeconds) // duration already in seconds
 
   // FIXED: Only auto-submit if time is up AND exam is not already submitted
   if (timeRemaining <= 0) {
@@ -310,27 +329,26 @@ export async function submitExam(
 
   logger.info(`Exam submitted: ${studentExamId}, Score: ${totalScore}/${studentExam.exam.totalMarks}`)
 
-  // Send exam completion email
-  try {
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
-      select: { email: true, firstName: true }
-    })
-    
-    if (student) {
-      await emailService.sendExamCompletionEmail(student.email, {
-        firstName: student.firstName,
-        examTitle: studentExam.exam.title,
-        score: totalScore,
-        percentage: scorePercentage,
-        totalQuestions: studentExam.totalQuestions,
-        passed,
-        studentExamId
-      })
-    }
-  } catch (error) {
-    logger.warn(`Failed to send exam completion email for ${studentExamId}:`, error)
-  }
+  // Send exam completion email (commented out — SMTP not configured)
+  // try {
+  //   const student = await prisma.user.findUnique({
+  //     where: { id: studentId },
+  //     select: { email: true, firstName: true }
+  //   })
+  //   if (student) {
+  //     await emailService.sendExamCompletionEmail(student.email, {
+  //       firstName: student.firstName,
+  //       examTitle: studentExam.exam.title,
+  //       score: totalScore,
+  //       percentage: scorePercentage,
+  //       totalQuestions: studentExam.totalQuestions,
+  //       passed,
+  //       studentExamId
+  //     })
+  //   }
+  // } catch (error) {
+  //   logger.warn(`Failed to send exam completion email for ${studentExamId}:`, error)
+  // }
 
   return {
     studentExamId,
@@ -358,7 +376,16 @@ export async function getExamResults(studentExamId: string, studentId: string) {
     where: { id: studentExamId },
     include: {
       exam: true,
-      answers: true
+      answers: {
+        include: {
+          question: {
+            include: {
+              subject: { select: { name: true } },
+              topic: { select: { name: true } }
+            }
+          }
+        }
+      }
     }
   })
 
@@ -366,26 +393,92 @@ export async function getExamResults(studentExamId: string, studentId: string) {
   if (studentExam.studentId !== studentId) throw new ForbiddenError('Access denied')
   if (studentExam.status !== 'SUBMITTED') throw new BadRequestError('Exam not yet submitted')
 
-  const scorePercentage = studentExam.totalScore > 0 
-    ? (studentExam.score / studentExam.totalScore) * 100 
+  const scorePercentage = studentExam.totalScore > 0
+    ? (studentExam.score / studentExam.totalScore) * 100
     : 0
+
+  // Build subject breakdown
+  const subjectMap = new Map<string, { correct: number; total: number; score: number; max: number }>()
+  const questions: any[] = []
+
+  studentExam.answers.forEach((answer, idx) => {
+    const question = answer.question as any
+    const optionsObj = (question.options as any) || {}
+    const answerObj = (answer.answer as any) || {}
+    const subjectName = question.subject?.name || 'General'
+
+    const current = subjectMap.get(subjectName) || { correct: 0, total: 0, score: 0, max: 0 }
+    current.total++
+    current.max += question.points || 1
+    if (answer.isCorrect) {
+      current.correct++
+      current.score += answer.pointsEarned || question.points || 1
+    }
+    subjectMap.set(subjectName, current)
+
+    questions.push({
+      id: question.id,
+      questionNumber: idx + 1,
+      questionText: question.questionText,
+      options: [
+        { label: 'A', text: optionsObj.A?.text || '' },
+        { label: 'B', text: optionsObj.B?.text || '' },
+        { label: 'C', text: optionsObj.C?.text || '' },
+        { label: 'D', text: optionsObj.D?.text || '' }
+      ],
+      selectedAnswer: answerObj.selected || null,
+      correctAnswer: question.correctAnswer,
+      isCorrect: answer.isCorrect || false,
+      explanation: question.explanation || 'No explanation available.',
+      subject: subjectName,
+      difficulty: question.difficulty || 'MEDIUM',
+      pointsEarned: answer.pointsEarned || 0,
+      timeSpent: answer.timeSpent || 0
+    })
+  })
+
+  const subjects = Array.from(subjectMap.entries()).map(([name, data]) => ({
+    name,
+    score: data.score,
+    max: data.max,
+    correct: data.correct,
+    total: data.total,
+    percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0
+  }))
+
+  // Count attempt number
+  const attemptNumber = await prisma.studentExam.count({
+    where: {
+      examId: studentExam.examId,
+      studentId,
+      status: 'SUBMITTED',
+      submittedAt: { lte: studentExam.submittedAt! }
+    }
+  })
 
   return {
     studentExamId,
-    examTitle: studentExam.exam.title,
-    totalQuestions: studentExam.totalQuestions,
-    answeredQuestions: studentExam.answeredQuestions,
-    correctAnswers: studentExam.correctAnswers,
-    wrongAnswers: studentExam.wrongAnswers,
-    score: studentExam.score,
-    totalMarks: studentExam.totalScore,
-    scorePercentage: scorePercentage.toFixed(1),
-    passed: studentExam.passed,
-    grade: studentExam.grade,
-    passMarks: studentExam.exam.passMarks,
-    autoSubmitted: studentExam.autoSubmitted,
-    submittedAt: studentExam.submittedAt,
-    timeSpent: studentExam.timeSpent
+    exam: {
+      id: studentExam.exam.id,
+      title: studentExam.exam.title,
+      duration: studentExam.exam.duration,
+      totalQuestions: studentExam.exam.totalQuestions,
+      description: studentExam.exam.description || ''
+    },
+    score: {
+      total: studentExam.score || 0,
+      max: studentExam.totalScore || studentExam.exam.totalMarks,
+      percentage: scorePercentage,
+      grade: studentExam.grade || 'F',
+      passed: studentExam.passed || false,
+      timeTaken: studentExam.timeSpent || 0
+    },
+    subjects,
+    questions,
+    analytics: null,
+    canRetake: studentExam.exam.allowRetake,
+    attemptNumber,
+    submittedAt: studentExam.submittedAt
   }
 }
 

@@ -1,0 +1,83 @@
+[
+  {
+    "timestamp": "2026-03-20T16:11:56.653Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:12:02.738Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:12:06.791Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:14:55.165Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/register",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/register"
+  },
+  {
+    "timestamp": "2026-03-20T16:24:11.374Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:28:24.722Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:28:29.899Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:28:46.789Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/login"
+  },
+  {
+    "timestamp": "2026-03-20T16:29:18.642Z",
+    "type": "API_ERROR",
+    "endpoint": "/auth/register",
+    "method": "POST",
+    "message": "Network Error",
+    "stack": "AxiosError: Network Error\n    at XMLHttpRequest.handleError (http://localhost:5173/node_modules/.vite/deps/axios.js?v=2f53f4b8:1717:19)",
+    "url": "/auth/register"
+  }
+]

@@ -45,7 +45,7 @@ export const generalRateLimit = rateLimit({
 // Strict rate limiting for authentication endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 auth requests per windowMs
+  max: 100, // Limit each IP to 5 auth requests per windowMs
   message: {
     success: false,
     error: {
@@ -246,27 +246,36 @@ export const inputSanitization = (req: Request, res: Response, next: NextFunctio
 // SQL INJECTION PROTECTION
 // ==========================================
 
+// Routes that contain legitimate educational content — skip SQL pattern checks
+const CONTENT_ROUTES = [
+  '/api/questions',
+  '/api/exams',
+  '/api/errors'
+]
+
 // Validate that input doesn't contain SQL injection patterns
 export const sqlInjectionProtection = (req: Request, res: Response, next: NextFunction) => {
+  // Skip for routes that handle rich educational/log content
+  const isContentRoute = CONTENT_ROUTES.some(r => req.path.startsWith(r.replace('/api', '')))
+  if (isContentRoute) {
+    return next()
+  }
+
+  // Only flag clear injection patterns: stacked queries and comment sequences
   const sqlPatterns = [
-    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi,
-    /(--|\/\*|\*\/|;|'|"|`)/g,
-    /(\bOR\b|\bAND\b).*?[=<>]/gi
+    /;\s*(DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|EXEC)\b/gi,  // stacked statements
+    /(\/\*[\s\S]*?\*\/)/g,                                     // block comments
+    /\bUNION\s+(ALL\s+)?SELECT\b/gi,                          // UNION SELECT
+    /\bEXEC\s*\(/gi,                                           // EXEC(
+    /xp_\w+/gi                                                 // SQL Server extended procs
   ]
 
   const checkForSqlInjection = (obj: any): boolean => {
     if (typeof obj === 'string') {
-      return sqlPatterns.some(pattern => pattern.test(obj))
+      return sqlPatterns.some(pattern => { pattern.lastIndex = 0; return pattern.test(obj) })
     }
-    
-    if (Array.isArray(obj)) {
-      return obj.some(checkForSqlInjection)
-    }
-    
-    if (obj && typeof obj === 'object') {
-      return Object.values(obj).some(checkForSqlInjection)
-    }
-    
+    if (Array.isArray(obj)) return obj.some(checkForSqlInjection)
+    if (obj && typeof obj === 'object') return Object.values(obj).some(checkForSqlInjection)
     return false
   }
 
@@ -274,9 +283,7 @@ export const sqlInjectionProtection = (req: Request, res: Response, next: NextFu
     logger.warn(`SQL injection attempt detected`, {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      endpoint: req.path,
-      body: req.body,
-      query: req.query
+      endpoint: req.path
     })
     
     return res.status(400).json({

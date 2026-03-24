@@ -12,6 +12,7 @@
 // Also provides template download
 
 import { Request, Response } from 'express'
+import multer from 'multer'
 import * as importService from '../services/import.service'
 import { asyncHandler } from '../middleware/error.middleware'
 import { BadRequestError } from '../utils/errors'
@@ -44,7 +45,7 @@ import * as XLSX from 'xlsx'
 //   }
 // }
 
-export const bulkImportQuestions = asyncHandler(async (req: Request, res: Response) => {
+export const bulkImportQuestions = asyncHandler(async (req: Request & { file?: Express.Multer.File }, res: Response) => {
   // ==========================================
   // STEP 1: Check if file was uploaded
   // ==========================================

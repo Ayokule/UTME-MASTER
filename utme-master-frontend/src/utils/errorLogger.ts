@@ -24,14 +24,25 @@ class ErrorLogger {
    * Log API errors
    */
   logApiError(error: any, endpoint?: string, method?: string) {
+    const isNetworkError = !error?.response && error?.message === 'Network Error'
+
     const errorInfo: ErrorInfo = {
       timestamp: new Date().toISOString(),
       type: 'API_ERROR',
       endpoint,
       method,
       statusCode: error?.response?.status,
-      message: error?.response?.data?.message || error?.message || 'Unknown API error',
-      details: error?.response?.data,
+      message: isNetworkError
+        ? `Network Error — cannot reach server at ${error?.config?.baseURL || 'unknown'}. Is the backend running?`
+        : error?.response?.data?.error?.message || error?.response?.data?.message || error?.message || 'Unknown API error',
+      details: isNetworkError
+        ? {
+            hint: 'Backend may be down or VITE_API_URL is wrong',
+            baseURL: error?.config?.baseURL,
+            fullURL: error?.config?.url,
+            requestData: error?.config?.data
+          }
+        : error?.response?.data,
       stack: error?.stack,
       url: error?.config?.url
     }

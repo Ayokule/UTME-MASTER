@@ -1,53 +1,56 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 import legacy from '@vitejs/plugin-legacy'
 import compression from 'vite-plugin-compression'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     legacy({
-      targets: ['chrome >= 60', 'firefox >= 60', 'safari >= 12'],
-      polyfills: true,
-      modernPolyfills: true
+      targets: ['defaults', 'not IE 11'],
     }),
     compression({
-      algorithm: 'gzip',
-      ext: '.gz'
-    })
+      threshold: 1024,
+    }),
   ],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        'src/types/',
+        'src/config/',
+        'src/store/',
+        'src/utils/constants.ts',
+      ],
+    },
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules/', 'dist/'],
+  },
   build: {
-    outDir: 'dist',
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
+          // Split large libraries into separate chunks
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['lucide-react', 'clsx'],
-          'data-vendor': ['axios', '@tanstack/react-query', 'zustand']
-        }
-      }
+          'chart-vendor': ['recharts', 'react-circular-progressbar'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'ui-vendor': ['framer-motion', 'lucide-react', 'react-quill'],
+          'api-vendor': ['axios', 'socket.io-client'],
+          'utils-vendor': ['papaparse', 'xlsx', 'file-saver', 'jspdf', 'html2canvas'],
+        },
+      },
     },
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    },
-    chunkSizeWarningLimit: 500,
-    sourcemap: true
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false
-      }
-    }
+    open: true,
   },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom']
-  }
 })

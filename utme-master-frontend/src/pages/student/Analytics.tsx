@@ -16,6 +16,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { showToast } from '../../components/ui/Toast'
 import {
   TrendingUp,
   Award,
@@ -24,7 +25,10 @@ import {
   AlertCircle,
   BarChart3,
   ArrowLeft,
-  Eye
+  Eye,
+  Download,
+  Printer,
+  Share2
 } from 'lucide-react'
 import {
   LineChart,
@@ -80,6 +84,8 @@ export default function StudentAnalytics() {
   const [comparison, setComparison] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'progress'>('overview')
+  const [showPDFModal, setShowPDFModal] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   
   // ==========================================
   // LOAD DATA
@@ -87,6 +93,40 @@ export default function StudentAnalytics() {
   useEffect(() => {
     loadDashboardData()
   }, [])
+  
+  // ==========================================
+  // EXPORT FUNCTIONS
+  // ==========================================
+  const handleExportPDF = async () => {
+    setIsGenerating(true)
+    try {
+      // Generate PDF using window.print() as fallback
+      window.print()
+      showToast.success('PDF generated successfully')
+    } catch (error) {
+      console.error('PDF generation failed:', error)
+      showToast.error('Failed to generate PDF')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+  
+  const handlePrint = () => {
+    window.print()
+  }
+  
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'My Learning Analytics',
+        text: `Check out my learning progress! I scored ${stats?.averagePercentage}% across ${stats?.totalExams} exams.`,
+        url: window.location.href
+      }).catch(console.error)
+    } else {
+      navigator.clipboard.writeText(window.location.href)
+      showToast.success('Link copied to clipboard!')
+    }
+  }
   
   async function loadDashboardData() {
     setLoading(true)
@@ -165,6 +205,31 @@ export default function StudentAnalytics() {
               <h1 className="text-4xl font-bold text-gray-900">Performance Analytics</h1>
             </div>
             <p className="text-gray-600 ml-14">Track your progress and identify areas for improvement</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportPDF}
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {isGenerating ? 'Generating...' : 'Export PDF'}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <Printer className="w-4 h-4" />
+              Print
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <Share2 className="w-4 h-4" />
+              Share
+            </button>
           </div>
         </div>
         

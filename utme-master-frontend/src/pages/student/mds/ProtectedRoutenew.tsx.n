@@ -1,0 +1,139 @@
+// src/components/ProtectedRoute.tsx
+// ==========================================
+// PROTECTED ROUTE COMPONENT
+// ==========================================
+// Protects routes based on user role
+// Checks role BEFORE component loads
+//
+// Usage:
+// <ProtectedRoute requiredRole="ADMIN">
+//   <AdminDashboard />
+// </ProtectedRoute>
+//
+// Or multiple roles:
+// <ProtectedRoute requiredRole={["ADMIN", "TEACHER"]}>
+//   <TeacherDashboard />
+// </ProtectedRoute>
+
+import { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuthStore } from '../store/auth'
+import LoadingSpinner from './ui/LoadingSkeleton'
+import UnauthorizedPage from '../pages/errors/UnauthorizedPage'
+
+interface ProtectedRouteProps {
+  children: React.ReactNode
+  requiredRole?: string | string[]
+  requiredTier?: string | string[] // For license tiers
+}
+
+/**
+ * ProtectedRoute Component
+ * 
+ * Checks user authentication and authorization before rendering
+ * Redirects to login if not authenticated
+ * Renders error page if not authorized
+ */
+export default function ProtectedRoute({
+  children,
+  requiredRole,
+  requiredTier
+}: ProtectedRouteProps) {
+  const { user, isAuthenticated, loading } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // ==========================================
+  // EFFECT: Check auth & permissions
+  // ==========================================
+  useEffect(() => {
+    // Still loading auth state
+    if (loading) return
+
+    // Not authenticated - redirect to login
+    if (!isAuthenticated || !user) {
+      navigate('/login', {
+        state: { from: location.pathname }
+      })
+      return
+    }
+
+    // Check role permissions
+    if (requiredRole) {
+      const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+      
+      if (!roles.includes(user.role)) {
+        console.warn(
+          `User ${user.email} (${user.role}) tried to access route requiring ${roles.join(', ')}`
+        )
+        // Will render unauthorized page below
+        return
+      }
+    }
+
+    // Check license tier permissions
+    if (requiredTier) {
+      const tiers = Array.isArray(requiredTier) ? requiredTier : [requiredTier]
+      const tierHierarchy = ['TRIAL', 'BASIC', 'PREMIUM', 'ENTERPRISE']
+      const userTierIndex = tierHierarchy.indexOf(user.licenseTier || 'TRIAL')
+
+      const hasRequiredTier = tiers.some(tier => {
+        const tierIndex = tierHierarchy.indexOf(tier)
+        return userTierIndex >= tierIndex
+      })
+
+      if (!hasRequiredTier) {
+        console.warn(
+          `User ${user.email} (${user.licenseTier}) tried to access feature requiring ${tiers.join(', ')}`
+        )
+        // Will render unauthorized page below
+        return
+      }
+    }
+  }, [user, isAuthenticated, loading, requiredRole, requiredTier, navigate, location])
+
+  // ==========================================
+  // RENDER: Different states
+  // ==========================================
+
+  // Still loading
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // Not authenticated
+  if (!isAuthenticated || !user) {
+    return null // Will redirect via useEffect
+  }
+
+  // Check role authorization
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    if (!roles.includes(user.role)) {
+      return <UnauthorizedPage missingRole={requiredRole} />
+    }
+  }
+
+  // Check tier authorization
+  if (requiredTier) {
+    const tiers = Array.isArray(requiredTier) ? requiredTier : [requiredTier]
+    const tierHierarchy = ['TRIAL', 'BASIC', 'PREMIUM', 'ENTERPRISE']
+    const userTierIndex = tierHierarchy.indexOf(user.licenseTier || 'TRIAL')
+
+    const hasRequiredTier = tiers.some(tier => {
+      const tierIndex = tierHierarchy.indexOf(tier)
+      return userTierIndex >= tierIndex
+    })
+
+    if (!hasRequiredTier) {
+      return <UnauthorizedPage missingTier={requiredTier} />
+    }
+  }
+
+  // All checks passed - render children
+  return <>{children}</>
+}

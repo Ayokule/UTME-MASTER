@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { logger } from '../utils/logger'
+import { AppError } from '../utils/errors'
 
 /**
  * Error Logging Middleware
@@ -16,17 +17,6 @@ export interface ErrorResponse {
   timestamp: string
   path: string
   method: string
-}
-
-export class AppError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public code?: string
-  ) {
-    super(message)
-    Error.captureStackTrace(this, this.constructor)
-  }
 }
 
 /**
@@ -84,8 +74,8 @@ export const errorLoggerMiddleware = (
  */
 export const notFoundMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const error = new AppError(
-    404,
     `Route not found: ${req.method} ${req.path}`,
+    404,
     'ROUTE_NOT_FOUND'
   )
 

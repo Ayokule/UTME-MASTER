@@ -1,0 +1,102 @@
+# ==========================================
+# LABELER CONFIGURATION
+# ==========================================
+# Define labels for different file types
+
+# Backend changes
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - utme-master-backend/**/*
+
+# Frontend changes
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - utme-master-frontend/**/*
+
+# Documentation changes
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - docs/**/*
+
+# Testing changes
+testing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.test.ts'
+          - '**/*.test.js'
+          - e2e/**/*
+
+# Configuration changes
+configuration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .env*
+          - docker-compose*.yml
+          - Dockerfile
+          - .github/**/*
+
+# Dependency updates
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - package.json
+          - package-lock.json
+          - utme-master-backend/package.json
+          - utme-master-backend/package-lock.json
+          - utme-master-frontend/package.json
+          - utme-master-frontend/package-lock.json
+
+# API changes
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - utme-master-backend/src/controllers/**/*
+          - utme-master-backend/src/routes/**/*
+
+# Database changes
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - prisma/**/*
+          - utme-master-backend/prisma/**/*
+
+# Docker changes
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - Dockerfile
+          - docker-compose*.yml
+          - .dockerignore
+          - nginx/**/*
+
+# Security changes
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - utme-master-backend/src/middleware/auth.middleware.ts
+          - utme-master-backend/src/middleware/security.middleware.ts
+
+# Performance changes
+performance:
+  - changed-files:
+      - any-glob-to-any-file:
+          - utme-master-backend/src/middleware/rateLimiter.ts
+          - utme-master-frontend/vite.config.ts
+
+# Bug fix
+bug:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/fix*.ts'
+          - '**/bug*.ts'
+
+# Feature
+feature:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/feature*.ts'
+          - '**/new*.ts'

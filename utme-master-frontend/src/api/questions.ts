@@ -50,19 +50,21 @@ export const getQuestions = async (params: GetQuestionsParams): Promise<Question
 // Get single question by ID
 export const getQuestion = async (id: string): Promise<Question> => {
   const response = await apiClient.get(`/questions/${id}`)
-  return response.data
+  // Backend returns { success: true, data: { question: {...} } }
+  return response.data?.data?.question || response.data?.data || response.data
 }
 
 // Create new question
 export const createQuestion = async (data: CreateQuestionData): Promise<Question> => {
   const response = await apiClient.post('/questions', data)
-  return response.data
+  // Backend returns { success: true, data: { question: {...} } }
+  return response.data?.data?.question || response.data?.data || response.data
 }
 
 // Update existing question
 export const updateQuestion = async (id: string, data: UpdateQuestionData): Promise<Question> => {
   const response = await apiClient.put(`/questions/${id}`, data)
-  return response.data
+  return response.data?.data?.question || response.data?.data || response.data
 }
 
 // Delete question
@@ -118,12 +120,47 @@ export const importQuestions = async (questions: any[]): Promise<ImportResult> =
   return response.data
 }
 
-// Download import template
-export const downloadImportTemplate = async (): Promise<Blob> => {
-  const response = await apiClient.get('/questions/import-template', {
-    responseType: 'blob'
-  })
-  return response.data
+// Export all questions as CSV (fetches all pages)
+export const exportQuestionsCSV = async (
+  filters: Partial<GetQuestionsParams> = {},
+  onProgress?: (fetched: number, total: number) => void
+): Promise<void> => {
+  // First fetch to get total count
+  const first = await getQuestions({ ...filters, page: 1, limit: 100 })
+  const total = first.total
+  const pageSize = 100
+  const totalPages = Math.ceil(total / pageSize)
+
+  let allQuestions = [...first.questions]
+  onProgress?.(allQuestions.length, total)
+
+  for (let p = 2; p <= totalPages; p++) {
+    const res = await getQuestions({ ...filters, page: p, limit: pageSize })
+    allQuestions = [...allQuestions, ...res.questions]
+    onProgress?.(allQuestions.length, total)
+  }
+
+  // Build CSV
+  const headers = ['Subject', 'Topic', 'Question', 'Option A', 'Option B', 'Option C', 'Option D', 'Correct Answer', 'Explanation', 'Difficulty', 'Year', 'Exam Type']
+  const escape = (v: any) => {
+    const s = String(v ?? '')
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const rows = allQuestions.map(q => [
+    q.subject, q.topic || '', q.questionText,
+    q.optionA || '', q.optionB || '', q.optionC || '', q.optionD || '',
+    q.correctAnswer, q.explanation || '',
+    q.difficulty, q.year || '', q.examType
+  ].map(escape).join(','))
+
+  const csv = [headers.join(','), ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `questions-export-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // Get question statistics
