@@ -255,23 +255,24 @@ export default function QuestionList() {
         </motion.div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {total > limit && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="mt-6"
           >
-            <Card padding="none">
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={setPage}
-                pageSize={limit}
-                onPageSizeChange={setLimit}
-                totalItems={total}
-              />
-            </Card>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              hasNext={page < totalPages}
+              hasPrev={page > 1}
+              onNext={() => setPage(page + 1)}
+              onPrev={() => setPage(page - 1)}
+              onGoTo={setPage}
+              pageSize={limit}
+              totalItems={total}
+            />
           </motion.div>
         )}
 

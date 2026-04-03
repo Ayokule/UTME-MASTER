@@ -3,6 +3,16 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import './styles/globals.css'
+import { applyTheme } from './store/theme'
+
+// Apply saved theme before first render to avoid flash
+const saved = localStorage.getItem('utme-theme')
+try {
+  const parsed = saved ? JSON.parse(saved) : null
+  applyTheme(parsed?.state?.theme === 'dark' ? 'dark' : 'light')
+} catch {
+  applyTheme('light')
+}
 
 console.log('🚀 UTME Master is loading...')
 

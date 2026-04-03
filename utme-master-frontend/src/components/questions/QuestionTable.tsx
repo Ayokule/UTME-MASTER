@@ -129,7 +129,7 @@ export default function QuestionTable({ onEdit, onDelete }: QuestionTableProps) 
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-soft border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-soft border border-gray-100">
         {/* Table Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
@@ -157,8 +157,8 @@ export default function QuestionTable({ onEdit, onDelete }: QuestionTableProps) 
         </div>
 
         {/* Desktop Table */}
-        <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full">
+        <div className="hidden lg:block overflow-x-auto rounded-b-2xl scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="w-12 px-6 py-3 text-left">

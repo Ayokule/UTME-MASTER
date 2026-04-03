@@ -112,6 +112,10 @@ export default function UserManagement() {
   }
 
   async function handleToggle(u: AdminUser) {
+    if (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') {
+      showToast.error('Admin accounts cannot be deactivated here. Use the database directly if needed.')
+      return
+    }
     try {
       const res = await toggleUserActive(u.id)
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isActive: res.data.user.isActive } : x))
@@ -245,7 +249,12 @@ export default function UserManagement() {
                         </td>
                         <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
                         <td className="px-4 py-3">
-                          <button onClick={() => handleToggle(u)} className="flex items-center gap-1.5 text-xs font-medium">
+                          <button
+                            onClick={() => handleToggle(u)}
+                            disabled={u.role === 'ADMIN' || u.role === 'SUPER_ADMIN'}
+                            className={`flex items-center gap-1.5 text-xs font-medium ${u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                            title={u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' ? 'Admin accounts cannot be deactivated' : ''}
+                          >
                             {u.isActive
                               ? <><ToggleRight className="w-5 h-5 text-green-500" /><span className="text-green-600">Active</span></>
                               : <><ToggleLeft className="w-5 h-5 text-gray-400" /><span className="text-gray-400">Inactive</span></>}

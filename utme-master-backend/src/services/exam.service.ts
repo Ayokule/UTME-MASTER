@@ -87,20 +87,28 @@ export async function startExam(examId: string, studentId: string) {
 
   const questions = exam.examQuestions.map(eq => {
     const question = eq.question as any
-    const optionsObj = question.options as any || {}
+    const rawOptions = question.options
+
+    // Support both array format [{label, text}] and object format {A: {text}, B: {text}}
+    let options: { label: string; text: string }[]
+    if (Array.isArray(rawOptions)) {
+      options = rawOptions.map((o: any) => ({ label: String(o.label || ''), text: String(o.text || '') }))
+    } else {
+      const optionsObj = rawOptions as any || {}
+      options = ['A', 'B', 'C', 'D'].map(label => ({
+        label,
+        text: optionsObj[label]?.text || optionsObj[label] || ''
+      }))
+    }
 
     return {
       id: question.id,
       questionText: question.questionText,
       questionType: question.questionType,
-      options: [
-        { label: 'A', text: optionsObj.A?.text || '' },
-        { label: 'B', text: optionsObj.B?.text || '' },
-        { label: 'C', text: optionsObj.C?.text || '' },
-        { label: 'D', text: optionsObj.D?.text || '' }
-      ],
+      options,
       subject: question.subject?.name,
-      difficulty: question.difficulty
+      difficulty: question.difficulty,
+      allowMultiple: question.allowMultiple ?? false
     }
   })
 
@@ -163,20 +171,14 @@ export async function resumeExam(studentExamId: string, studentId: string) {
 
   const questions = studentExam.exam.examQuestions.map(eq => {
     const question = eq.question as any
-    const optionsObj = question.options as any || {}
-
     return {
       id: question.id,
       questionText: question.questionText,
       questionType: question.questionType,
-      options: [
-        { label: 'A', text: optionsObj.A?.text || '' },
-        { label: 'B', text: optionsObj.B?.text || '' },
-        { label: 'C', text: optionsObj.C?.text || '' },
-        { label: 'D', text: optionsObj.D?.text || '' }
-      ],
+      options: normalizeOptions(question),
       subject: question.subject?.name,
-      difficulty: question.difficulty
+      difficulty: question.difficulty,
+      allowMultiple: question.allowMultiple ?? false
     }
   })
 
@@ -260,7 +262,11 @@ export async function submitExam(
   const studentExam = await prisma.studentExam.findUnique({
     where: { id: studentExamId },
     include: {
-      exam: true,
+      exam: {
+        include: {
+          examQuestions: { select: { questionId: true, points: true } }
+        }
+      },
       answers: {
         include: { question: true }
       }
@@ -278,6 +284,11 @@ export async function submitExam(
   let correctAnswers = 0
   let totalScore = 0
 
+  // Build a map of questionId -> points from ExamQuestion (per-exam override)
+  const examQuestionPoints = new Map<string, number>(
+    (studentExam.exam as any).examQuestions?.map((eq: any) => [eq.questionId, eq.points]) ?? []
+  )
+
   // Calculate scores
   for (const answer of studentExam.answers) {
     const question = answer.question as any
@@ -289,17 +300,21 @@ export async function submitExam(
       isCorrect = studentAnswer?.selected === correctAnswer
     }
 
+    // Points: use ExamQuestion override first, then question.points, then difficulty-based fallback
+    const pointsForQuestion = examQuestionPoints.get(question.id)
+      ?? question.points
+      ?? (question.difficulty === 'HARD' ? 3 : question.difficulty === 'MEDIUM' ? 2 : 1)
+
     if (isCorrect) {
       correctAnswers++
-      totalScore += question.points || 1
+      totalScore += pointsForQuestion
     }
 
-    // Update answer correctness
     await prisma.studentAnswer.update({
       where: { id: answer.id },
       data: {
         isCorrect,
-        pointsEarned: isCorrect ? (question.points || 1) : 0
+        pointsEarned: isCorrect ? pointsForQuestion : 0
       }
     })
   }

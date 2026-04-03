@@ -531,6 +531,8 @@ export async function getAllExams(req: Request, res: Response): Promise<void> {
         isActive: true,
         allowReview: true,
         allowRetake: true,
+        randomizeQuestions: true,
+        subjectIds: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { examQuestions: true } }
@@ -781,21 +783,27 @@ export async function startPracticeExam(req: Request, res: Response): Promise<vo
       return
     }
 
-    // FIXED: Normalize questions to match startExam format exactly
+    // Normalize questions — support both array [{label,text}] and object {A:{text}} formats
     const questions = questionsRaw.map((q: any) => {
-      const optionsObj = q.options as any || {}
+      const rawOptions = q.options
+      let options: { label: string; text: string }[]
+      if (Array.isArray(rawOptions)) {
+        options = rawOptions.map((o: any) => ({ label: String(o.label || ''), text: String(o.text || '') }))
+      } else {
+        const optionsObj = rawOptions as any || {}
+        options = ['A', 'B', 'C', 'D'].map(label => ({
+          label,
+          text: optionsObj[label]?.text || optionsObj[label] || ''
+        }))
+      }
       return {
         id: q.id,
         questionText: q.questionText,
         questionType: q.questionType,
-        options: [
-          { label: 'A', text: optionsObj.A?.text || '' },
-          { label: 'B', text: optionsObj.B?.text || '' },
-          { label: 'C', text: optionsObj.C?.text || '' },
-          { label: 'D', text: optionsObj.D?.text || '' }
-        ],
+        options,
         subject: q.subject?.name || subject,
-        difficulty: q.difficulty
+        difficulty: q.difficulty,
+        allowMultiple: q.allowMultiple ?? false
       }
     })
 

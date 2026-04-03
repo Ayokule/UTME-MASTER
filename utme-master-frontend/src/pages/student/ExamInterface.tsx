@@ -180,9 +180,16 @@ export default function ExamInterface() {
     } catch { /* silent — answer save failures don't break exam */ }
   }
 
+  // Debounce ref — prevents rapid answer changes from firing multiple API calls
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function handleAnswerChange(questionId: string, answer: any) {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
-    submitAnswer(questionId, answer)
+    // Debounce: wait 600ms after last change before saving
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      submitAnswer(questionId, answer)
+    }, 600)
   }
 
   function goToQuestion(index: number) {

@@ -39,15 +39,18 @@ export default function QuestionCard({
     return text.substring(0, maxLength) + '...'
   }
 
-  const getCorrectAnswerText = () => {
-    switch (question.correctAnswer) {
-      case 'A': return question.optionA || ''
-      case 'B': return question.optionB || ''
-      case 'C': return question.optionC || ''
-      case 'D': return question.optionD || ''
-      default: return ''
+  const getOptionText = (label: 'A' | 'B' | 'C' | 'D') => {
+    // Try options array first (new format from import)
+    if (Array.isArray(question.options) && question.options.length > 0) {
+      const opt = question.options.find((o: any) => o.label === label)
+      if (opt) return opt.text || ''
     }
+    // Fall back to legacy flat fields
+    const map = { A: question.optionA, B: question.optionB, C: question.optionC, D: question.optionD }
+    return map[label] || ''
   }
+
+  const getCorrectAnswerText = () => getOptionText(question.correctAnswer as 'A' | 'B' | 'C' | 'D')
 
   return (
     <>
@@ -113,18 +116,11 @@ export default function QuestionCard({
 
           {/* Options Preview */}
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className={`p-2 rounded-lg ${question.correctAnswer === 'A' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-              <span className="font-medium">A:</span> {truncateText(question.optionA, 30)}
-            </div>
-            <div className={`p-2 rounded-lg ${question.correctAnswer === 'B' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-              <span className="font-medium">B:</span> {truncateText(question.optionB, 30)}
-            </div>
-            <div className={`p-2 rounded-lg ${question.correctAnswer === 'C' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-              <span className="font-medium">C:</span> {truncateText(question.optionC, 30)}
-            </div>
-            <div className={`p-2 rounded-lg ${question.correctAnswer === 'D' ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
-              <span className="font-medium">D:</span> {truncateText(question.optionD, 30)}
-            </div>
+            {(['A', 'B', 'C', 'D'] as const).map(label => (
+              <div key={label} className={`p-2 rounded-lg ${question.correctAnswer === label ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
+                <span className="font-medium">{label}:</span> {truncateText(getOptionText(label), 30)}
+              </div>
+            ))}
           </div>
 
           {/* Footer */}

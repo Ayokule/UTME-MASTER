@@ -57,6 +57,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true)
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
     try {
       const result = await getAdminDashboard()
       setData(result)
+      setLastUpdated(new Date())
     } catch (err: any) {
       showToast.error('Failed to load dashboard data')
     } finally {
@@ -72,7 +74,12 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(() => load(true), 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   const getTimeAgo = (dateString: string) => {
     const diff = Math.floor((Date.now() - new Date(dateString).getTime()) / 60000)
@@ -93,7 +100,7 @@ export default function AdminDashboard() {
     { icon: Users, label: 'Teachers', value: stats?.totalTeachers ?? 0, color: 'bg-purple-500' },
     { icon: BookOpen, label: 'Questions', value: stats?.totalQuestions ?? 0, color: 'bg-green-500' },
     { icon: FileText, label: 'Exams', value: stats?.totalExams ?? 0, color: 'bg-amber-500' },
-    { icon: Activity, label: 'Active Users', value: stats?.activeUsers ?? 0, color: 'bg-indigo-500' },
+    { icon: Activity, label: 'Exams In Progress', value: stats?.activeUsers ?? 0, color: 'bg-indigo-500' },
     { icon: Target, label: 'Subjects', value: stats?.totalSubjects ?? 0, color: 'bg-pink-500' },
   ]
 
@@ -147,10 +154,17 @@ export default function AdminDashboard() {
                 Welcome back, {user?.firstName}. Here's your system overview.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3">
+              {lastUpdated && (
+                <span className="text-xs text-gray-400 hidden sm:block">
+                  Updated {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+              <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}

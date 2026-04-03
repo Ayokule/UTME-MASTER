@@ -54,14 +54,46 @@ export async function getQuestions(query: QueryQuestionsInput) {
     }
   }
   
-  // Add subject filter
+  // Add subject filter — supports subjectId (UUID), subject (name), or subjects[]/subjects (array of names)
   if (query.subjectId) {
     where.subjectId = query.subjectId
+  } else {
+    const q = query as any
+    const subjectNames: string[] = []
+
+    // subjects[] or subjects array
+    const subjectsParam = q['subjects[]'] ?? q.subjects
+    if (subjectsParam) {
+      const arr = Array.isArray(subjectsParam) ? subjectsParam : [subjectsParam]
+      subjectNames.push(...arr.map((s: string) => s.trim()).filter(Boolean))
+    }
+    // single subject name
+    if (q.subject && !subjectNames.length) {
+      subjectNames.push(String(q.subject).trim())
+    }
+
+    if (subjectNames.length > 0) {
+      where.subject = {
+        name: { in: subjectNames, mode: 'insensitive' }
+      }
+    }
   }
-  
-  // Add topic filter
+
+  // Add topic filter — supports topicId or topics[]/topics array
   if (query.topicId) {
     where.topicId = query.topicId
+  } else {
+    const q = query as any
+    const topicNames: string[] = []
+    const topicsParam = q['topics[]'] ?? q.topics
+    if (topicsParam) {
+      const arr = Array.isArray(topicsParam) ? topicsParam : [topicsParam]
+      topicNames.push(...arr.map((s: string) => s.trim()).filter(Boolean))
+    }
+    if (q.topic && !topicNames.length) topicNames.push(String(q.topic).trim())
+    if (topicNames.length > 0) {
+      where.topic = { name: { in: topicNames, mode: 'insensitive' } }
+    }
   }
   
   // Add difficulty filter
@@ -130,7 +162,13 @@ export async function getQuestions(query: QueryQuestionsInput) {
   // Transform database results to API response format
   // Convert JSON options to separate fields for frontend compatibility
   const formattedQuestions = questions.map((q: any) => {
-    const optionsObj = q.options as any || {}
+    const opts = q.options as any
+    const getOpt = (label: string) => {
+      if (Array.isArray(opts)) {
+        return opts.find((o: any) => o.label === label)?.text || ''
+      }
+      return opts?.[label]?.text || opts?.[label] || ''
+    }
     return {
       id: q.id,
       subjectId: q.subjectId,
@@ -138,11 +176,16 @@ export async function getQuestions(query: QueryQuestionsInput) {
       topicId: q.topicId,
       topic: q.topic?.name,
       questionText: q.questionText,
-      // Convert JSON options to separate fields
-      optionA: optionsObj.A?.text || '',
-      optionB: optionsObj.B?.text || '',
-      optionC: optionsObj.C?.text || '',
-      optionD: optionsObj.D?.text || '',
+      options: Array.isArray(opts) ? opts : [
+        { label: 'A', text: getOpt('A'), isCorrect: q.correctAnswer === 'A' },
+        { label: 'B', text: getOpt('B'), isCorrect: q.correctAnswer === 'B' },
+        { label: 'C', text: getOpt('C'), isCorrect: q.correctAnswer === 'C' },
+        { label: 'D', text: getOpt('D'), isCorrect: q.correctAnswer === 'D' },
+      ],
+      optionA: getOpt('A'),
+      optionB: getOpt('B'),
+      optionC: getOpt('C'),
+      optionD: getOpt('D'),
       correctAnswer: q.correctAnswer,
       explanation: q.explanation,
       difficulty: q.difficulty,
@@ -200,7 +243,15 @@ export async function getQuestionById(id: string) {
   }
   
   // Format response
-  const optionsObj = question.options as any || {}
+  const options = question.options as any
+  // Support both array format [{label,text}] (import) and object format {A:{text}} (manual create)
+  const getOption = (label: string) => {
+    if (Array.isArray(options)) {
+      return options.find((o: any) => o.label === label)?.text || ''
+    }
+    return options?.[label]?.text || options?.[label] || ''
+  }
+
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -208,11 +259,16 @@ export async function getQuestionById(id: string) {
     topicId: question.topicId,
     topic: question.topic?.name,
     questionText: question.questionText,
-    // Convert JSON options to separate fields
-    optionA: optionsObj.A?.text || '',
-    optionB: optionsObj.B?.text || '',
-    optionC: optionsObj.C?.text || '',
-    optionD: optionsObj.D?.text || '',
+    options: Array.isArray(options) ? options : [
+      { label: 'A', text: getOption('A'), isCorrect: question.correctAnswer === 'A' },
+      { label: 'B', text: getOption('B'), isCorrect: question.correctAnswer === 'B' },
+      { label: 'C', text: getOption('C'), isCorrect: question.correctAnswer === 'C' },
+      { label: 'D', text: getOption('D'), isCorrect: question.correctAnswer === 'D' },
+    ],
+    optionA: getOption('A'),
+    optionB: getOption('B'),
+    optionC: getOption('C'),
+    optionD: getOption('D'),
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
@@ -279,28 +335,28 @@ export async function createQuestion(data: any, userId: string) {
   }
 
   // ==========================================
-  // STEP 3: Resolve options — accept array or flat fields
+  // STEP 3: Resolve options — normalize to array format
   // ==========================================
-  let optionsJson: Record<string, { text: string }>
-  let correctAnswer: string = data.correctAnswer
+  let optionsArray: { label: string; text: string; isCorrect: boolean }[]
+  let correctAnswer: string = String(data.correctAnswer || '').toUpperCase()
 
   if (Array.isArray(data.options) && data.options.length >= 2) {
-    // Build options JSON from array
-    optionsJson = {}
-    data.options.forEach((opt: { label: string; text: string; isCorrect: boolean }) => {
-      optionsJson[opt.label] = { text: opt.text }
-    })
+    optionsArray = data.options.map((opt: any) => ({
+      label: String(opt.label),
+      text: String(opt.text || ''),
+      isCorrect: opt.isCorrect ?? (String(opt.label) === correctAnswer)
+    }))
     // Derive correctAnswer from isCorrect flag if not explicitly set
-    const correctOpt = data.options.find((o: any) => o.isCorrect)
-    if (correctOpt) correctAnswer = correctOpt.label
+    const correctOpt = optionsArray.find(o => o.isCorrect)
+    if (correctOpt && !correctAnswer) correctAnswer = correctOpt.label
   } else {
-    // Legacy flat fields
-    optionsJson = {
-      A: { text: data.optionA || '' },
-      B: { text: data.optionB || '' },
-      C: { text: data.optionC || '' },
-      D: { text: data.optionD || '' }
-    }
+    // Legacy flat fields — convert to array
+    optionsArray = [
+      { label: 'A', text: String(data.optionA || ''), isCorrect: correctAnswer === 'A' },
+      { label: 'B', text: String(data.optionB || ''), isCorrect: correctAnswer === 'B' },
+      { label: 'C', text: String(data.optionC || ''), isCorrect: correctAnswer === 'C' },
+      { label: 'D', text: String(data.optionD || ''), isCorrect: correctAnswer === 'D' },
+    ]
   }
 
   // ==========================================
@@ -311,7 +367,7 @@ export async function createQuestion(data: any, userId: string) {
       subjectId: subject.id,
       topicId,
       questionText: data.questionText,
-      options: optionsJson,
+      options: optionsArray,
       correctAnswer,
       explanation: data.explanation || null,
       difficulty: data.difficulty,
@@ -328,7 +384,9 @@ export async function createQuestion(data: any, userId: string) {
 
   logger.info(`Question created: ${question.id} (${subject.name})`)
 
-  const optObj = question.options as any || {}
+  const opts = question.options as any[]
+  const getOpt = (label: string) => opts.find((o: any) => o.label === label)?.text || ''
+
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -336,10 +394,11 @@ export async function createQuestion(data: any, userId: string) {
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    optionA: optObj.A?.text || '',
-    optionB: optObj.B?.text || '',
-    optionC: optObj.C?.text || '',
-    optionD: optObj.D?.text || '',
+    options: opts,
+    optionA: getOpt('A'),
+    optionB: getOpt('B'),
+    optionC: getOpt('C'),
+    optionD: getOpt('D'),
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,
@@ -386,22 +445,25 @@ export async function updateQuestion(id: string, data: any) {
     topicId = t.id
   }
 
-  // Resolve options
+  // Resolve options — normalize to array format
   let optionsUpdate: any = undefined
-  let correctAnswer = data.correctAnswer || existingQuestion.correctAnswer
+  let correctAnswer = String(data.correctAnswer || existingQuestion.correctAnswer || '').toUpperCase()
 
   if (Array.isArray(data.options) && data.options.length >= 2) {
-    optionsUpdate = {}
-    data.options.forEach((opt: any) => { optionsUpdate[opt.label] = { text: opt.text } })
+    optionsUpdate = data.options.map((opt: any) => ({
+      label: String(opt.label),
+      text: String(opt.text || ''),
+      isCorrect: opt.isCorrect ?? (String(opt.label) === correctAnswer)
+    }))
     const correctOpt = data.options.find((o: any) => o.isCorrect)
     if (correctOpt) correctAnswer = correctOpt.label
-  } else if (data.optionA) {
-    optionsUpdate = {
-      A: { text: data.optionA },
-      B: { text: data.optionB },
-      C: { text: data.optionC },
-      D: { text: data.optionD }
-    }
+  } else if (data.optionA !== undefined) {
+    optionsUpdate = [
+      { label: 'A', text: String(data.optionA || ''), isCorrect: correctAnswer === 'A' },
+      { label: 'B', text: String(data.optionB || ''), isCorrect: correctAnswer === 'B' },
+      { label: 'C', text: String(data.optionC || ''), isCorrect: correctAnswer === 'C' },
+      { label: 'D', text: String(data.optionD || ''), isCorrect: correctAnswer === 'D' },
+    ]
   }
 
   const question = await prisma.question.update({
@@ -425,7 +487,12 @@ export async function updateQuestion(id: string, data: any) {
 
   logger.info(`Question updated: ${question.id}`)
 
-  const optObj = question.options as any || {}
+  const updatedOpts = question.options as any
+  const getUpdatedOpt = (label: string) => {
+    if (Array.isArray(updatedOpts)) return (updatedOpts as any[]).find((o: any) => o.label === label)?.text || ''
+    return updatedOpts?.[label]?.text || ''
+  }
+
   return {
     id: question.id,
     subjectId: question.subjectId,
@@ -433,10 +500,11 @@ export async function updateQuestion(id: string, data: any) {
     topicId: question.topicId,
     topicName: question.topic?.name,
     questionText: question.questionText,
-    optionA: optObj.A?.text || '',
-    optionB: optObj.B?.text || '',
-    optionC: optObj.C?.text || '',
-    optionD: optObj.D?.text || '',
+    options: Array.isArray(updatedOpts) ? (updatedOpts as any[]) : [],
+    optionA: getUpdatedOpt('A'),
+    optionB: getUpdatedOpt('B'),
+    optionC: getUpdatedOpt('C'),
+    optionD: getUpdatedOpt('D'),
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     difficulty: question.difficulty,

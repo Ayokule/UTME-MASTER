@@ -14,7 +14,15 @@ export interface DuplicateGroup {
 }
 
 export interface HealthReport {
-  questions: { total: number; inactive: number; withoutSubject: number; duplicateGroups: number; duplicateCount: number }
+  questions: {
+    total: number
+    inactive: number
+    withoutSubject: number
+    duplicateGroups: number
+    duplicateCount: number
+    improperCount: number
+    improperQuestions: { id: string; questionPreview: string; subject: string; issues: string[] }[]
+  }
   exams: { total: number; emptyExams: number; emptyExamList: { id: string; title: string }[] }
   recentImports: { id: string; fileName: string; status: string; imported: number; failed: number; createdAt: string }[]
 }

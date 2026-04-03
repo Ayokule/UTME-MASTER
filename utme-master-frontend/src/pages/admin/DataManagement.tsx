@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Database, ArrowLeft, AlertTriangle, CheckCircle, RefreshCw,
   Trash2, BookOpen, ClipboardList, Search, X, Plus, Minus,
-  FileText, Activity, ChevronDown, ChevronUp
+  FileText, Activity, ChevronDown, ChevronUp, ShieldAlert
 } from 'lucide-react'
 import Layout from '../../components/Layout'
 import SafePageWrapper from '../../components/SafePageWrapper'
@@ -27,6 +27,7 @@ export default function DataManagement() {
   const [tab, setTab] = useState<Tab>('health')
   const [health, setHealth] = useState<HealthReport | null>(null)
   const [healthLoading, setHealthLoading] = useState(false)
+  const [showImproper, setShowImproper] = useState(false)
 
   // Duplicates
   const [dupLoading, setDupLoading] = useState(false)
@@ -219,6 +220,7 @@ export default function DataManagement() {
                         ['Inactive / Deleted', health.questions.inactive, 'text-gray-500'],
                         ['Duplicate Groups', health.questions.duplicateGroups, health.questions.duplicateGroups > 0 ? 'text-red-600' : 'text-green-600'],
                         ['Total Duplicates', health.questions.duplicateCount, health.questions.duplicateCount > 0 ? 'text-red-600' : 'text-green-600'],
+                        ['Improper Questions', health.questions.improperCount, health.questions.improperCount > 0 ? 'text-orange-600' : 'text-green-600'],
                       ].map(([label, val, cls]) => (
                         <div key={label as string} className="flex justify-between">
                           <span className="text-gray-600">{label}</span>
@@ -226,11 +228,18 @@ export default function DataManagement() {
                         </div>
                       ))}
                     </div>
-                    {health.questions.duplicateGroups > 0 && (
-                      <button onClick={() => setTab('duplicates')} className="mt-3 text-xs text-red-600 underline">
-                        View & fix duplicates →
-                      </button>
-                    )}
+                    <div className="flex gap-3 mt-3 flex-wrap">
+                      {health.questions.duplicateGroups > 0 && (
+                        <button onClick={() => setTab('duplicates')} className="text-xs text-red-600 underline">
+                          View & fix duplicates →
+                        </button>
+                      )}
+                      {health.questions.improperCount > 0 && (
+                        <button onClick={() => setShowImproper(v => !v)} className="text-xs text-orange-600 underline">
+                          {showImproper ? 'Hide' : 'View'} improper questions →
+                        </button>
+                      )}
+                    </div>
                   </Card>
                   <Card>
                     <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -260,6 +269,46 @@ export default function DataManagement() {
                       </div>
                     )}
                   </Card>
+
+                  {/* Improper Questions Panel */}
+                  <AnimatePresence>
+                    {showImproper && health.questions.improperCount > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="md:col-span-2 overflow-hidden"
+                      >
+                        <Card>
+                          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <ShieldAlert className="w-4 h-4 text-orange-500" />
+                            Improper Questions ({health.questions.improperCount})
+                            <span className="text-xs font-normal text-gray-500 ml-1">— questions with missing/invalid data</span>
+                          </h3>
+                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {health.questions.improperQuestions.map(q => (
+                              <div key={q.id} className="border border-orange-100 bg-orange-50 rounded-lg p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-gray-800 font-medium line-clamp-2">{q.questionPreview || <em className="text-gray-400">Empty question</em>}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">Subject: {q.subject} · ID: {q.id.slice(-8)}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {q.issues.map((issue, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
+                                      <AlertTriangle className="w-3 h-3" />{issue}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </Card>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <Card className="md:col-span-2">
                     <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-blue-500" />Recent Imports

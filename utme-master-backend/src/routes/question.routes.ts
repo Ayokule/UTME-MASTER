@@ -55,22 +55,31 @@ router.get(
   questionController.getQuestions        // Handle request
 )
 
+// BULK DELETE QUESTIONS — must be BEFORE /:id to avoid Express matching "bulk" as an :id
+// POST /api/questions/bulk-delete
+router.post(
+  '/bulk-delete',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  validateBody(bulkDeleteSchema),
+  questionController.bulkDeleteQuestions
+)
+
+// Also support DELETE /api/questions/bulk (legacy)
+router.delete(
+  '/bulk',
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  validateBody(bulkDeleteSchema),
+  questionController.bulkDeleteQuestions
+)
+
 // GET SINGLE QUESTION
 // GET /api/questions/:id
-//
-// Anyone can view a single question
-//
-// URL parameter:
-// - id: Question UUID
-//
-// Middleware chain:
-// 1. validateParams - Validate :id parameter
-// 2. questionController.getQuestionById - Fetch and return question
-
 router.get(
   '/:id',
-  validate(questionIdSchema),    // Validate :id param
-  questionController.getQuestionById    // Handle request
+  validate(questionIdSchema),
+  questionController.getQuestionById
 )
 
 // ==========================================
@@ -143,68 +152,13 @@ router.put(
 
 // DELETE QUESTION
 // DELETE /api/questions/:id
-//
-// Only ADMIN or TEACHER can delete questions
-//
-// URL parameter:
-// - id: Question UUID
-//
-// Note: This is a soft delete (marks question as inactive)
-// Question remains in database for history/analytics
-//
-// Middleware chain:
-// 1. authenticate - Check if user is logged in
-// 2. authorizeRole - Check if user is ADMIN or TEACHER
-// 3. validateParams - Validate :id parameter
-// 4. questionController.deleteQuestion - Delete question
-
 router.delete(
   '/:id',
-  authenticate,                                      // Must be logged in
-  authorizeRole(['ADMIN', 'TEACHER']),              // Must be ADMIN or TEACHER
-  validate(questionIdSchema),                  // Validate :id
-  questionController.deleteQuestion                  // Handle request
+  authenticate,
+  authorizeRole(['ADMIN', 'TEACHER']),
+  validate(questionIdSchema),
+  questionController.deleteQuestion
 )
-
-// BULK DELETE QUESTIONS
-// DELETE /api/questions/bulk
-//
-// Only ADMIN or TEACHER can bulk delete
-//
-// Request body:
-// {
-//   ids: string[] (array of question UUIDs, max 100)
-// }
-//
-// Note: This is also soft delete
-//
-// Middleware chain:
-// 1. authenticate - Check if user is logged in
-// 2. authorizeRole - Check if user is ADMIN or TEACHER
-// 3. validateBody - Validate request body
-// 4. questionController.bulkDeleteQuestions - Delete questions
-
-router.delete(
-  '/bulk',
-  authenticate,                                      // Must be logged in
-  authorizeRole(['ADMIN', 'TEACHER']),              // Must be ADMIN or TEACHER
-  validateBody(bulkDeleteSchema),                    // Validate body
-  questionController.bulkDeleteQuestions             // Handle request
-)
-
-// ==========================================
-// EXPORT ROUTER
-// ==========================================
-// This router is imported in server.ts
-// and mounted at /api/questions
-//
-// So these routes become:
-// GET    /api/questions           (get all)
-// GET    /api/questions/:id       (get one)
-// POST   /api/questions           (create)
-// PUT    /api/questions/:id       (update)
-// DELETE /api/questions/:id       (delete)
-// DELETE /api/questions/bulk      (bulk delete)
 
 export default router
 

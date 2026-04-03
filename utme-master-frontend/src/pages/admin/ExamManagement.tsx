@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { BookOpen, Plus, Edit2, Trash2, Eye, Clock, ArrowLeft, AlertCircle, X, Save, ToggleLeft, ToggleRight, ListChecks, Search, CheckSquare, Square } from 'lucide-react'
+import { BookOpen, Plus, Edit2, Trash2, Eye, Clock, ArrowLeft, AlertCircle, X, Save, ToggleLeft, ToggleRight, ListChecks, Search, CheckSquare, Square, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react'
 import Layout from '../../components/Layout'
 import SafePageWrapper from '../../components/SafePageWrapper'
 import Card from '../../components/ui/Card'
@@ -9,10 +9,18 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { getAdminExams, updateExam, deleteExam, assignQuestionsToExam, getExamQuestionIds } from '../../api/exams'
 import { getSubjects } from '../../api/subjects'
+import { getQuestions } from '../../api/questions'
 import { showToast } from '../../components/ui/Toast'
 import apiClient from '../../api/client'
 
 interface Subject { id: string; name: string }
+
+interface SubjectQState {
+  loading: boolean
+  count: number
+  questionIds: string[]
+  error?: string
+}
 
 interface AdminExam {
   id: string
@@ -26,6 +34,8 @@ interface AdminExam {
   isActive: boolean
   allowReview: boolean
   allowRetake: boolean
+  randomizeQuestions?: boolean
+  subjectIds?: any
   createdAt: string
   _count?: { examQuestions: number }
 }
@@ -48,8 +58,11 @@ export default function ExamManagement() {
   const [deleteTarget, setDeleteTarget] = useState<AdminExam | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [editForm, setEditForm] = useState<Partial<AdminExam> & { subjectIds?: string[] }>({})
+  const [editForm, setEditForm] = useState<Partial<AdminExam> & { subjectIds?: string[]; totalQuestions?: number; randomizeQuestions?: boolean }>({})
   const [subjects, setSubjects] = useState<Subject[]>([])
+  // Per-subject question state for edit modal
+  const [editSubjectQuestions, setEditSubjectQuestions] = useState<Record<string, SubjectQState>>({})
+  const [showEditSubjectDetails, setShowEditSubjectDetails] = useState(false)
 
   // Question assignment panel
   const [assignExam, setAssignExam] = useState<AdminExam | null>(null)
@@ -91,8 +104,58 @@ export default function ExamManagement() {
   })
 
   function openEdit(exam: AdminExam) {
-    setEditForm({ ...exam, duration: Math.round(exam.duration / 60) }) // show minutes in form
+    // Parse existing subjectIds from the exam (stored as JSON array of IDs)
+    let existingSubjectIds: string[] = []
+    if (exam.subjectIds) {
+      try {
+        existingSubjectIds = Array.isArray(exam.subjectIds)
+          ? exam.subjectIds
+          : JSON.parse(exam.subjectIds)
+      } catch { existingSubjectIds = [] }
+    }
+
+    setEditForm({
+      ...exam,
+      duration: Math.round(exam.duration / 60),
+      subjectIds: existingSubjectIds,
+      totalQuestions: exam._count?.examQuestions ?? exam.totalQuestions,
+      randomizeQuestions: exam.randomizeQuestions ?? false
+    })
+    setEditSubjectQuestions({})
+    setShowEditSubjectDetails(false)
     setEditExam(exam)
+
+    // Pre-fetch questions for already-selected subjects
+    if (existingSubjectIds.length > 0) {
+      existingSubjectIds.forEach(subjectId => {
+        const subj = subjects.find(s => s.id === subjectId)
+        if (subj) fetchSubjectQuestionsForEdit(subj)
+      })
+    }
+  }
+
+  async function fetchSubjectQuestionsForEdit(subject: Subject) {
+    const id = subject.id
+    setEditSubjectQuestions(prev => ({ ...prev, [id]: { loading: true, count: 0, questionIds: [] } }))
+    try {
+      const res = await getQuestions({ subjects: [subject.name], topics: [], page: 1, limit: 1000 })
+      const ids = (res.questions ?? []).map((q: any) => q.id)
+      setEditSubjectQuestions(prev => ({ ...prev, [id]: { loading: false, count: ids.length, questionIds: ids } }))
+    } catch {
+      setEditSubjectQuestions(prev => ({ ...prev, [id]: { loading: false, count: 0, questionIds: [], error: 'Failed' } }))
+    }
+  }
+
+  function toggleEditSubject(subject: Subject) {
+    const id = subject.id
+    const isSelected = (editForm.subjectIds ?? []).includes(id)
+    if (isSelected) {
+      setEditForm(f => ({ ...f, subjectIds: (f.subjectIds ?? []).filter((s: string) => s !== id) }))
+      setEditSubjectQuestions(prev => { const n = { ...prev }; delete n[id]; return n })
+    } else {
+      setEditForm(f => ({ ...f, subjectIds: [...(f.subjectIds ?? []), id] }))
+      if (!editSubjectQuestions[id]) fetchSubjectQuestionsForEdit(subject)
+    }
   }
 
   async function openAssign(exam: AdminExam) {
@@ -139,14 +202,51 @@ export default function ExamManagement() {
     try {
       setSaving(true)
       const payload: any = { ...editForm }
-      // Convert duration from minutes to seconds
       if (payload.duration) payload.duration = payload.duration * 60
+
       const res = await updateExam(editExam.id, payload)
-      if (res.success) {
+      if (!res.success) throw new Error('Failed to update exam')
+
+      // Re-assign questions based on selected subjects + totalQuestions limit
+      const selectedSubjectIds = editForm.subjectIds ?? []
+      if (selectedSubjectIds.length > 0) {
+        const allIds = selectedSubjectIds.flatMap((id: string) => editSubjectQuestions[id]?.questionIds ?? [])
+        if (allIds.length > 0) {
+          const limit = editForm.totalQuestions ?? allIds.length
+          let finalIds: string[]
+
+          if (editForm.randomizeQuestions) {
+            // Fisher-Yates shuffle then take limit
+            const shuffled = [...allIds]
+            for (let i = shuffled.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+            }
+            finalIds = shuffled.slice(0, limit)
+          } else {
+            finalIds = allIds.slice(0, limit)
+          }
+
+          try {
+            await assignQuestionsToExam(editExam.id, finalIds)
+            setExams(prev => prev.map(e => e.id === editExam.id
+              ? { ...e, ...editForm, duration: editExam.duration, _count: { examQuestions: finalIds.length }, totalQuestions: finalIds.length } as AdminExam
+              : e
+            ))
+            showToast.success(`Exam updated — ${finalIds.length} questions assigned${editForm.randomizeQuestions ? ' (randomized)' : ''}`)
+          } catch {
+            showToast.success('Exam updated (question re-assignment failed — use Manage Questions)')
+          }
+        } else {
+          setExams(prev => prev.map(e => e.id === editExam.id ? { ...e, ...editForm } as AdminExam : e))
+          showToast.success('Exam updated successfully')
+        }
+      } else {
         setExams(prev => prev.map(e => e.id === editExam.id ? { ...e, ...editForm } as AdminExam : e))
         showToast.success('Exam updated successfully')
-        setEditExam(null)
       }
+
+      setEditExam(null)
     } catch (err: any) {
       showToast.error(err.message || 'Failed to update exam')
     } finally {
@@ -406,33 +506,93 @@ export default function ExamManagement() {
                   </div>
                   {subjects.length > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Subjects</label>
-                      <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                        {subjects.map(s => (
-                          <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <input
-                              type="checkbox"
-                              checked={(editForm.subjectIds ?? []).includes(s.id)}
-                              onChange={() => setEditForm(f => {
-                                const ids = f.subjectIds ?? []
-                                return {
-                                  ...f,
-                                  subjectIds: ids.includes(s.id)
-                                    ? ids.filter(id => id !== s.id)
-                                    : [...ids, s.id]
-                                }
-                              })}
-                              className="w-4 h-4 text-blue-600 rounded"
-                            />
-                            <span className="text-gray-700">{s.name}</span>
-                          </label>
-                        ))}
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Subjects — click to load questions</label>
+                        {(editForm.subjectIds?.length ?? 0) > 0 && (
+                          <button type="button" onClick={() => setShowEditSubjectDetails(v => !v)}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                            {showEditSubjectDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {showEditSubjectDetails ? 'Hide' : 'Show'} details
+                          </button>
+                        )}
                       </div>
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                        {subjects.map(s => {
+                          const selected = (editForm.subjectIds ?? []).includes(s.id)
+                          const qs = editSubjectQuestions[s.id]
+                          return (
+                            <button key={s.id} type="button" onClick={() => toggleEditSubject(s)}
+                              className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm text-left transition-all ${
+                                selected ? 'bg-blue-50 border-blue-400 text-blue-800' : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                              }`}>
+                              <span className="truncate font-medium">{s.name}</span>
+                              <span className="shrink-0">
+                                {selected && qs?.loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+                                {selected && !qs?.loading && qs?.count !== undefined && (
+                                  <span className="text-xs bg-blue-600 text-white rounded-full px-1.5 py-0.5">{qs.count}</span>
+                                )}
+                                {!selected && <span className="w-3.5 h-3.5 rounded border border-gray-300 inline-block" />}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Summary + per-subject breakdown */}
                       {(editForm.subjectIds?.length ?? 0) > 0 && (
-                        <p className="text-xs text-blue-600 mt-1">{editForm.subjectIds!.length} subject(s) selected</p>
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-blue-700 font-medium">{editForm.subjectIds!.length} subject(s)</span>
+                            <span className="text-blue-800 font-semibold">
+                              {editForm.subjectIds!.some((id: string) => editSubjectQuestions[id]?.loading)
+                                ? <span className="flex items-center gap-1"><Loader2 className="w-3.5 h-3.5 animate-spin" />Loading...</span>
+                                : `${editForm.subjectIds!.reduce((s: number, id: string) => s + (editSubjectQuestions[id]?.count ?? 0), 0)} total questions available`
+                              }
+                            </span>
+                          </div>
+                          {showEditSubjectDetails && (
+                            <div className="mt-2 space-y-1">
+                              {editForm.subjectIds!.map((id: string) => {
+                                const subj = subjects.find((s: Subject) => s.id === id)
+                                const qs = editSubjectQuestions[id]
+                                return (
+                                  <div key={id} className="flex items-center justify-between text-xs text-blue-700">
+                                    <span>{subj?.name}</span>
+                                    <span>
+                                      {qs?.loading ? <Loader2 className="w-3 h-3 animate-spin inline" /> :
+                                        qs?.error ? <span className="text-red-500">{qs.error}</span> :
+                                        <span className="flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3 text-green-500" />{qs?.count ?? 0} questions
+                                        </span>
+                                      }
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
+
+                  {/* Total questions limit */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Total Questions for Exam
+                        <span className="text-xs text-gray-400 ml-1">(limits how many get assigned)</span>
+                      </label>
+                      <input type="number" min={1}
+                        value={editForm.totalQuestions || ''}
+                        onChange={e => setEditForm(f => ({ ...f, totalQuestions: Number(e.target.value) }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Marks</label>
+                      <input type="number" value={editForm.totalMarks || ''} onChange={e => setEditForm(f => ({ ...f, totalMarks: Number(e.target.value) }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
                   <div className="space-y-3">
                     {[
                       { key: 'isPublished' as keyof AdminExam, label: 'Published' },

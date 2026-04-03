@@ -16,7 +16,7 @@ import { logger } from '../utils/logger'
 // General API rate limiting
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 300, // Increased from 100 — supports normal browsing + exam taking
   message: {
     success: false,
     error: {
@@ -37,6 +37,29 @@ export const generalRateLimit = rateLimit({
       error: {
         code: 'RATE_LIMIT_EXCEEDED',
         message: 'Too many requests from this IP, please try again later.'
+      }
+    })
+  }
+})
+
+// Exam-specific rate limit — much higher to support answer saving during exams
+// A 100-question exam with re-saves = ~200+ requests in one session
+export const examRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 2000, // 2000 requests per hour per IP — supports multiple concurrent exams
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => false, // always apply but with high limit
+  handler: (req: Request, res: Response) => {
+    logger.warn(`Exam rate limit exceeded for IP: ${req.ip}`, {
+      ip: req.ip,
+      endpoint: req.path
+    })
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many exam requests. Please wait a moment.'
       }
     })
   }

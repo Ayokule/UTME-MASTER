@@ -50,7 +50,8 @@ import { errorHandler } from './middleware/error.middleware'
 
 // Security middleware
 import { 
-  generalRateLimit, 
+  generalRateLimit,
+  examRateLimit,
   securityHeaders,
   inputSanitization,
   sqlInjectionProtection
@@ -216,8 +217,8 @@ app.use(`${API_PREFIX}/questions`, questionRoutes)
 // Subject routes: /api/subjects/*
 app.use(`${API_PREFIX}/subjects`, subjectRoutes)
 
-// Exam routes: /api/exams/* 
- app.use(`${API_PREFIX}/exams`, examRoutes)
+// Exam routes: /api/exams/* — use higher rate limit (answer saving fires on every question)
+app.use(`${API_PREFIX}/exams`, examRateLimit, examRoutes)
 
 // Upload routes: /api/upload/*
 app.use(`${API_PREFIX}/upload`, uploadRoutes)

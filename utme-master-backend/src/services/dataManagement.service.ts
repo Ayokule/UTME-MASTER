@@ -151,12 +151,17 @@ export async function bulkAssignQuestionsToExam(
   })
   const alreadyAssigned = new Set(existing.map(e => e.questionId))
 
-  // Validate all question IDs exist
+  // Validate all question IDs exist — fetch points and difficulty too
   const validQuestions = await prisma.question.findMany({
     where: { id: { in: questionIds }, isActive: true },
-    select: { id: true, options: true, questionText: true }
+    select: { id: true, points: true, difficulty: true }
   })
   const validIds = new Set(validQuestions.map(q => q.id))
+  const pointsMap = new Map(validQuestions.map(q => ({
+    id: q.id,
+    // Use stored points, fallback to difficulty-based: EASY=1, MEDIUM=2, HARD=3
+    pts: q.points || (q.difficulty === 'HARD' ? 3 : q.difficulty === 'MEDIUM' ? 2 : 1)
+  })).map(q => [q.id, q.pts]))
 
   const toAssign = questionIds.filter(id => validIds.has(id) && !alreadyAssigned.has(id))
   const skipped = questionIds.filter(id => alreadyAssigned.has(id))
@@ -173,23 +178,29 @@ export async function bulkAssignQuestionsToExam(
   })
   let nextOrder = (maxOrder._max.orderNumber ?? 0) + 1
 
-  // Bulk create ExamQuestion records
+  // Bulk create ExamQuestion records — use per-question points
   await prisma.examQuestion.createMany({
     data: toAssign.map(questionId => ({
       examId,
       questionId,
       orderNumber: nextOrder++,
-      points: 1,
+      points: pointsMap.get(questionId) ?? 1,
       questionData: {}
     })),
     skipDuplicates: true
   })
 
-  // Update exam totalQuestions count
+  // Update exam totalQuestions AND totalMarks (sum of all assigned question points)
   const newCount = await prisma.examQuestion.count({ where: { examId } })
+  const totalMarksResult = await prisma.examQuestion.aggregate({
+    where: { examId },
+    _sum: { points: true }
+  })
+  const newTotalMarks = totalMarksResult._sum.points ?? newCount
+
   await prisma.exam.update({
     where: { id: examId },
-    data: { totalQuestions: newCount, updatedAt: new Date() }
+    data: { totalQuestions: newCount, totalMarks: newTotalMarks, updatedAt: new Date() }
   })
 
   // Write audit log
@@ -207,7 +218,8 @@ export async function bulkAssignQuestionsToExam(
     assigned: toAssign.length,
     skipped: skipped.length,
     notFound: notFound.length,
-    newTotalQuestions: newCount
+    newTotalQuestions: newCount,
+    newTotalMarks
   }
 }
 
@@ -326,7 +338,8 @@ export async function getDataHealthReport() {
     examsWithNoQuestions,
     totalExams,
     duplicateResult,
-    recentImports
+    recentImports,
+    allActiveQuestions
   ] = await Promise.all([
     prisma.question.count({ where: { isActive: true } }),
     prisma.question.count({ where: { isActive: false } }),
@@ -337,8 +350,79 @@ export async function getDataHealthReport() {
     }).then(exams => exams.filter(e => e._count.examQuestions === 0)),
     prisma.exam.count({ where: { isActive: true } }),
     findDuplicateQuestions(),
-    prisma.questionImport.findMany({ orderBy: { createdAt: 'desc' }, take: 5 })
+    prisma.questionImport.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+    prisma.question.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        questionText: true,
+        options: true,
+        correctAnswer: true,
+        subject: { select: { name: true } }
+      }
+    })
   ])
+
+  // ---- Question quality checks ----
+  const improperQuestions: {
+    id: string
+    questionPreview: string
+    subject: string
+    issues: string[]
+  }[] = []
+
+  for (const q of allActiveQuestions) {
+    const issues: string[] = []
+    const options = Array.isArray(q.options) ? q.options as any[] : []
+
+    // No options at all
+    if (options.length === 0) {
+      issues.push('No answer options')
+    } else {
+      // Options exist but some have empty text
+      const emptyOptions = options.filter((o: any) => !o?.text || String(o.text).trim() === '')
+      if (emptyOptions.length > 0) {
+        issues.push(`${emptyOptions.length} option(s) have empty text`)
+      }
+
+      // Fewer than 4 options
+      if (options.length < 4) {
+        issues.push(`Only ${options.length} option(s) (expected 4)`)
+      }
+    }
+
+    // No correct answer set
+    if (!q.correctAnswer || String(q.correctAnswer).trim() === '') {
+      issues.push('No correct answer set')
+    } else if (options.length > 0) {
+      // Correct answer letter doesn't match any option label
+      const labels = options.map((o: any) => String(o?.label || '').toUpperCase())
+      if (!labels.includes(String(q.correctAnswer).toUpperCase())) {
+        issues.push(`Correct answer "${q.correctAnswer}" doesn't match any option label (${labels.join(', ')})`)
+      }
+
+      // No option marked isCorrect
+      const hasCorrectFlag = options.some((o: any) => o?.isCorrect === true)
+      if (!hasCorrectFlag) {
+        issues.push('No option is marked as correct (isCorrect flag missing)')
+      }
+    }
+
+    // Empty question text
+    const plainText = String(q.questionText || '').replace(/<[^>]+>/g, '').trim()
+    if (plainText.length < 5) {
+      issues.push('Question text is empty or too short')
+    }
+
+    if (issues.length > 0) {
+      improperQuestions.push({
+        id: q.id,
+        questionPreview: plainText.substring(0, 80) + (plainText.length > 80 ? '...' : ''),
+        subject: (q.subject as any)?.name ?? 'Unknown',
+        issues
+      })
+    }
+  }
 
   return {
     questions: {
@@ -346,7 +430,9 @@ export async function getDataHealthReport() {
       inactive: inactiveQuestions,
       withoutSubject: questionsWithoutSubject,
       duplicateGroups: duplicateResult.totalDuplicateGroups,
-      duplicateCount: duplicateResult.totalDuplicateQuestions
+      duplicateCount: duplicateResult.totalDuplicateQuestions,
+      improperCount: improperQuestions.length,
+      improperQuestions
     },
     exams: {
       total: totalExams,

@@ -280,7 +280,7 @@ export async function getAdminDashboardStats() {
         totalTeachers: await prisma.user.count({ where: { role: 'TEACHER', isActive: true } }),
         totalQuestions,
         totalExams,
-        activeUsers: await prisma.user.count({ where: { isActive: true } }),
+        activeUsers: await prisma.studentExam.count({ where: { status: 'IN_PROGRESS' } }),
         totalSubjects: await prisma.subject.count({ where: { isActive: true } })
       },
       recentActivity: [

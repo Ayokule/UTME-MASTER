@@ -29,23 +29,31 @@ export default function DisplayQuestion({ question, showExplanation = true }: Di
       <div>
         <h3 className="text-lg font-semibold mb-4">Options:</h3>
         <div className="space-y-3">
-          {['A', 'B', 'C', 'D'].map((option) => {
-            const optionKey = `option${option}` as keyof Question
-            const optionValue = question[optionKey]
-            
+          {(['A', 'B', 'C', 'D'] as const).map((label) => {
+            // Support both options array (new) and flat fields (legacy)
+            let optionValue: string | undefined
+            if (Array.isArray(question.options) && question.options.length > 0) {
+              const opt = question.options.find((o: any) => o.label === label)
+              optionValue = opt?.text
+            } else {
+              optionValue = question[`option${label}` as keyof Question] as string | undefined
+            }
+
             if (!optionValue) return null
-            
+
+            const isCorrect = question.correctAnswer === label
+
             return (
-              <div key={option} className="flex items-start space-x-3">
+              <div key={label} className={`flex items-start space-x-3 p-2 rounded-lg ${isCorrect ? 'bg-green-50 border border-green-200' : ''}`}>
                 <div className="flex-shrink-0">
-                  <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary-100 text-primary-700 font-semibold">
-                    {option}
+                  <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-semibold ${isCorrect ? 'bg-green-600 text-white' : 'bg-primary-100 text-primary-700'}`}>
+                    {label}
                   </span>
                 </div>
                 <div className="flex-1">
                   <Suspense fallback={<div className="bg-gray-100 rounded-lg animate-pulse h-16" />}>
                     <RichTextEditor
-                      value={optionValue as string}
+                      value={optionValue}
                       onChange={() => {}}
                       readOnly={true}
                       height="auto"

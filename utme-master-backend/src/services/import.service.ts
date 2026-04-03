@@ -347,17 +347,18 @@ async function processRow(row: any, rowNumber: number, userId: string): Promise<
         { label: 'C', text: String(row.optionC).trim(), isCorrect: correctAnswer === 'C' },
         { label: 'D', text: String(row.optionD).trim(), isCorrect: correctAnswer === 'D' }
       ],
-      // Legacy fields for backward compatibility - not in schema, kept for reference
-      // optionA: String(row.optionA).trim(),
-      // optionB: String(row.optionB).trim(),
-      // optionC: String(row.optionC).trim(),
-      // optionD: String(row.optionD).trim(),
       correctAnswer: correctAnswer,
       explanation: row.explanation ? String(row.explanation).trim() : null,
       difficulty: String(row.difficulty).trim().toUpperCase() as 'EASY' | 'MEDIUM' | 'HARD',
       year: row.year ? parseInt(String(row.year)) : null,
       examType: String(row.examType).trim().toUpperCase() as 'JAMB' | 'WAEC' | 'NECO',
-      points: row.points ? parseInt(String(row.points)) : 1,
+      // Auto-assign points by difficulty: EASY=1, MEDIUM=2, HARD=3
+      // Override with explicit points column if provided
+      points: row.points
+        ? parseInt(String(row.points))
+        : String(row.difficulty).trim().toUpperCase() === 'HARD' ? 3
+        : String(row.difficulty).trim().toUpperCase() === 'MEDIUM' ? 2
+        : 1,
       timeLimitSeconds: row.timeLimitSeconds ? parseInt(String(row.timeLimitSeconds)) : 60,
       createdBy: userId,
       isActive: true

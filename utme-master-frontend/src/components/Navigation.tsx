@@ -33,12 +33,15 @@ import {
   ChevronDown,
   Edit,
   UserCircle,
-  Bell,
   HelpCircle,
   BookMarked,
-  Zap
+  Zap,
+  Sun,
+  Moon
 } from 'lucide-react'
 import Badge from './ui/Badge'
+import NotificationCenter from './notifications/NotificationCenter'
+import { useThemeStore } from '../store/theme'
 
 // ==========================================
 // NAVIGATION ITEM TYPE
@@ -64,6 +67,7 @@ export default function Navigation() {
   const { user, clearAuth } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useThemeStore()
 
   // ==========================================
   // HANDLERS
@@ -107,7 +111,7 @@ export default function Navigation() {
           icon: <FileText className="w-4 h-4" />,
           submenu: [
             { name: 'Question List', href: '/admin/questions', icon: <FileText className="w-4 h-4" /> },
-            { name: 'Bulk Import', href: '/admin/questions/bulk-import', icon: <FileText className="w-4 h-4" /> }, // ✅ Better organization
+            { name: 'Bulk Import', href: '/admin/bulk-import', icon: <FileText className="w-4 h-4" /> },
           ]
         },
         {
@@ -190,29 +194,18 @@ export default function Navigation() {
 
   const navigationItems = getNavigationItems()
 
-  // ==========================================
-  // GET ROLE BADGE COLOR
-  // ==========================================
-  const getRoleBadgeColor = (role?: string): string => {
-    switch (role) {
-      case 'ADMIN': return 'error'      // Red
-      case 'TEACHER': return 'warning'  // Orange
-      case 'STUDENT': return 'primary'  // Blue
-      default: return 'info'
+  const getRoleBadgeColor = (role?: string) => {
+    const map: Record<string, 'error' | 'warning' | 'primary' | 'info'> = {
+      ADMIN: 'error', TEACHER: 'warning', STUDENT: 'primary', SUPER_ADMIN: 'error'
     }
+    return map[role ?? ''] ?? 'info'
   }
 
-  // ==========================================
-  // GET LICENSE TIER BADGE COLOR
-  // ==========================================
-  const getLicenseBadgeColor = (tier?: string): string => {
-    switch (tier) {
-      case 'ENTERPRISE': return 'error'      // Red
-      case 'PREMIUM': return 'warning'       // Orange
-      case 'BASIC': return 'primary'         // Blue
-      case 'TRIAL': return 'info'            // Gray
-      default: return 'info'
+  const getLicenseBadgeColor = (tier?: string) => {
+    const map: Record<string, 'error' | 'warning' | 'primary' | 'info'> = {
+      ENTERPRISE: 'error', PREMIUM: 'warning', BASIC: 'primary', TRIAL: 'info'
     }
+    return map[tier ?? ''] ?? 'info'
   }
 
   // ==========================================
@@ -235,7 +228,7 @@ export default function Navigation() {
   // MAIN RENDER
   // ==========================================
   return (
-    <nav className="bg-white/80 backdrop-blur-md shadow-soft border-b border-gray-100 sticky top-0 z-40">
+    <nav className="bg-white/80 dark:bg-gray-900/90 backdrop-blur-md shadow-soft border-b border-gray-100 dark:border-gray-700/50 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
 
@@ -281,7 +274,7 @@ export default function Navigation() {
                   >
                     <div className="relative group">
                       <button className={`relative flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                       }`}>
                         {item.icon}
                         <span>{item.name}</span>
@@ -289,15 +282,15 @@ export default function Navigation() {
                       </button>
 
                       {/* Dropdown submenu */}
-                      <div className="absolute left-0 mt-0 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="absolute left-0 mt-0 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                         {item.submenu.map((subitem) => (
                           <Link
                             key={subitem.name}
                             to={subitem.href || '#'}
                             className={`flex items-center space-x-3 px-4 py-3 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${
                               isNavItemActive(subitem)
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                             }`}
                           >
                             {subitem.icon}
@@ -322,8 +315,8 @@ export default function Navigation() {
                     to={item.href || '#'}
                     className={`relative flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 group ${
                       isNavItemActive(item)
-                        ? 'bg-gradient-to-r from-primary-100 to-secondary-100 text-primary-700 shadow-soft'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        ? 'bg-gradient-to-r from-primary-100 to-secondary-100 dark:from-primary-900/40 dark:to-secondary-900/40 text-primary-700 dark:text-primary-300 shadow-soft'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
                     {item.icon}
@@ -345,25 +338,37 @@ export default function Navigation() {
               USER MENU (DESKTOP)
               ──────────────────────────────────────── */}
           <div className="hidden md:flex items-center space-x-4 flex-shrink-0">
-            {/* Notifications */}
+            {/* Dark mode toggle */}
             <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={toggleTheme}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+              {theme === 'dark'
+                ? <Sun className="w-5 h-5 text-yellow-400" />
+                : <Moon className="w-5 h-5" />}
             </motion.button>
 
-            {/* Help */}
+            {/* Notifications — real NotificationCenter */}
+            <NotificationCenter />
+
+            {/* Help — links to docs or flagged questions for admin */}
             <motion.button
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={() => {
+                if (user?.role === 'ADMIN' || user?.role === 'TEACHER') {
+                  navigate('/admin/flagged-questions')
+                } else {
+                  navigate('/student/analytics')
+                }
+              }}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              title={user?.role === 'ADMIN' || user?.role === 'TEACHER' ? 'Flagged Questions' : 'Analytics'}
             >
               <HelpCircle className="w-5 h-5" />
             </motion.button>
@@ -376,7 +381,7 @@ export default function Navigation() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <div className="w-8 h-8 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center flex-shrink-0">
                   <User className="w-4 h-4 text-white" />
@@ -403,10 +408,10 @@ export default function Navigation() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50"
+                    className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50"
                   >
                     {/* User Info Header */}
-                    <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
                           <User className="w-5 h-5 text-white" />
@@ -422,7 +427,7 @@ export default function Navigation() {
                     <div className="py-2">
                       <button
                         onClick={handleProfileEdit}
-                        className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                        className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left transition-colors"
                       >
                         <UserCircle className="w-4 h-4" />
                         <span>Edit Profile</span>
@@ -436,7 +441,7 @@ export default function Navigation() {
                               navigate('/admin/settings')
                               setIsUserMenuOpen(false)
                             }}
-                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left transition-colors"
                           >
                             <Settings className="w-4 h-4" />
                             <span>System Settings</span>
@@ -447,7 +452,7 @@ export default function Navigation() {
                               navigate('/admin/license')
                               setIsUserMenuOpen(false)
                             }}
-                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left transition-colors"
                           >
                             <Shield className="w-4 h-4" />
                             <span>License Management</span>
@@ -481,7 +486,7 @@ export default function Navigation() {
                         </button>
                       )}
 
-                      <div className="border-t border-gray-100 my-2"></div>
+                      <div className="border-t border-gray-100 dark:border-gray-700 my-2"></div>
                       
                       <button
                         onClick={() => {
@@ -507,7 +512,7 @@ export default function Navigation() {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </motion.button>
@@ -524,7 +529,7 @@ export default function Navigation() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="md:hidden border-t border-gray-100 py-4 overflow-hidden"
+              className="md:hidden border-t border-gray-100 dark:border-gray-700 py-4 overflow-hidden"
             >
               <div className="space-y-2">
                 {navigationItems.map((item, index) => {
@@ -540,7 +545,7 @@ export default function Navigation() {
                       >
                         <button
                           onClick={() => setExpandedSubmenu(isExpanded ? null : item.name)}
-                          className="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium w-full text-left text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all"
+                          className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium w-full text-left text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-all`}
                         >
                           {item.icon}
                           <span className="flex-1">{item.name}</span>
@@ -587,8 +592,8 @@ export default function Navigation() {
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                           isNavItemActive(item)
-                            ? 'bg-gradient-to-r from-primary-100 to-secondary-100 text-primary-700'
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            ? 'bg-gradient-to-r from-primary-100 to-secondary-100 dark:from-primary-900/40 dark:to-secondary-900/40 text-primary-700 dark:text-primary-300'
+                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                         }`}
                       >
                         {item.icon}
@@ -600,7 +605,7 @@ export default function Navigation() {
                 
                 {/* Mobile User Info */}
                 <div className="border-t border-gray-100 pt-4 mt-4">
-                  <div className="px-4 py-3 bg-gray-50 rounded-xl mb-3">
+                  <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl mb-3">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center flex-shrink-0">
                         <User className="w-5 h-5 text-white" />
@@ -626,7 +631,7 @@ export default function Navigation() {
                         handleProfileEdit()
                         setIsMobileMenuOpen(false)
                       }}
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl w-full transition-colors"
+                      className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl w-full transition-colors"
                     >
                       <UserCircle className="w-5 h-5" />
                       <span>Edit Profile</span>

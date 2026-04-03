@@ -206,7 +206,7 @@ export const updateQuestionSchema = createQuestionBaseSchema.partial()
 // Query questions schema
 export const queryQuestionsSchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(500)).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(1000)).optional(),
   search: z.string().optional(),
   subjectId: z.string().min(1).optional(),
   topicId: z.string().min(1).optional(),
@@ -217,7 +217,12 @@ export const queryQuestionsSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
   isActive: z.string().optional(),
   subject: z.string().optional(),
+  // subjects[] array sent as subjects%5B%5D=Biology&subjects%5B%5D=Math
+  'subjects[]': z.union([z.string(), z.array(z.string())]).optional(),
+  subjects: z.union([z.string(), z.array(z.string())]).optional(),
   topic: z.string().optional(),
+  'topics[]': z.union([z.string(), z.array(z.string())]).optional(),
+  topics: z.union([z.string(), z.array(z.string())]).optional(),
 }).passthrough()
 
 // Bulk delete schema — accepts UUID or CUID
